@@ -10,8 +10,6 @@ import { G, emit, clamp, lerp, smoothstep } from '../core/ctx.js';
 import { WEAPONS, SUB, SPECIALS, PLAYER } from '../config.js';
 import { Physics, Hit } from './physics.js';
 
-// local-player gamepad rumble (subtle; no-op without a pad or with settings.rumble = 0)
-function rumble(a, strong, weak, ms) { if (a && a.isLocal && !a.isBot) G.input?.rumble?.(strong, weak, ms); }
 // feet of the victim's *visual* body (the smoothed root), so what you see is what you hit
 const _hb = new THREE.Vector3();
 function hitBase(e) { return _hb.set(e.pos.x, e.pos.y + (e.smoothY || 0), e.pos.z); }
@@ -34,7 +32,7 @@ export class WeaponRunner {
   reset() {
     this.cooldown = 0; this.charge = 0; this.charging = false; this.rolling = false;
     this.flick = -1; this.firingT = 0; this.emptyCd = 0; this.aimingSub = false;
-    this.bloom = 0; this.spread = 0; this.rollT = 0; this.chargeT = 0; this.flickRecover = 0; this.rumbleT = 0;
+    this.bloom = 0; this.spread = 0; this.rollT = 0; this.chargeT = 0; this.flickRecover = 0;
     this.rollDist = 0; this.rollHits = new Map(); this.chargeLoop?.stop(0.05); this.chargeLoop = null; this.chargeDinged = false;
     this.rollLoop?.stop(0.1); this.rollLoop = null;
     this.lastRollPos = null;
@@ -78,7 +76,7 @@ export class WeaponRunner {
 
   update(dt, inp) {
     const a = this.a, w = a.weapon;
-    this.cooldown -= dt; this.emptyCd -= dt; this.rumbleT -= dt;
+    this.cooldown -= dt; this.emptyCd -= dt;
     this.firingT = Math.max(0, this.firingT - dt);
     this.flickRecover = Math.max(0, this.flickRecover - dt);
     // spread bloom recovers when the trigger is released (and slowly while still firing between shots)
@@ -107,7 +105,6 @@ export class WeaponRunner {
         a.lastFire = 0;
         a.character.trigger('throw');
         G.projectiles.throwBomb(a);
-        rumble(a, 0.08, 0.22, 70);
       }
     }
     if (!inp.sub && !inp.subReleased) this.aimingSub = false;
@@ -157,7 +154,6 @@ export class WeaponRunner {
       if (this.charge >= 1 && !this.chargeDinged) {
         this.chargeDinged = true;
         if (a.isLocal) G.audio?.play('charger_full', { volume: 0.7 });
-        rumble(a, 0.05, 0.3, 60);
       }
     } else if (this.charging) {
       this.charging = false;
@@ -238,7 +234,6 @@ export class WeaponRunner {
     }
     a.addTurf(area);
     emit('weapon:impact', { pos: _v.set(a.pos.x + fx * 0.75, a.pos.y + 0.02, a.pos.z + fz * 0.75).clone(), normal: a.groundN ? a.groundN.clone() : UP.clone(), team: a.team, kind: 'roll', radius: w.rollWidth / 2 });
-    if (this.rumbleT <= 0) { this.rumbleT = 0.12; rumble(a, 0.04, clamp(hs / w.rollSpeed, 0, 1) * 0.14, 110); }
   }
   // ---- dualies: the hands alternate (12 shots/s). A jump press while firing with a move direction dodge-rolls instead
   // (actor.js calls tryDodge / dodgeVel): a 0.3 s ink-trailing roll, then a 0.5 s locked turret — planted, tight spread,
@@ -294,7 +289,6 @@ export class WeaponRunner {
     a.character.trigger('dodge', { x: dx * cy - dz * sy, z: dx * sy + dz * cy, t: w.rollTime });   // root space (+x = its left)
     if (a.isLocal || a._nearCamera()) G.audio?.play('dualies_roll', { pos: a.isLocal ? undefined : a.pos, volume: a.isLocal ? 0.7 : 0.5 });
     emit('weapon:dodge', { actor: a, pos: a.pos.clone(), dir: this._dodgeDir.clone() });
-    rumble(a, 0.22, 0.32, 130);
     return true;
   }
 
@@ -367,7 +361,6 @@ export class WeaponRunner {
       if (this.charge >= 1 && !this.chargeDinged) {
         this.chargeDinged = true;
         if (a.isLocal) G.audio?.play('splatling_ready', { volume: 0.7 });
-        rumble(a, 0.05, 0.28, 60);
       }
     } else if (this.charging) {
       this.charging = false;
@@ -681,8 +674,6 @@ export class Projectiles {
       G.fx?.muzzle(m, dir, a.color, 'shooter');
     }
     emit('weapon:fire', { actor: a, weapon: w.id, muzzle: m.clone(), dir: dir.clone() });
-    const wr = a.weaponRunner;
-    if (wr.rumbleT <= 0) { wr.rumbleT = 0.09; rumble(a, 0.02, 0.1, 40); }
   }
 
   // Left-hand muzzle for dual wield: the rig's own left pistol when it exposes one, else the right muzzle mirrored
@@ -725,16 +716,12 @@ export class Projectiles {
     const m = this._muzzleHand(a, hand, _v.set(0, 0, 0));
     const dir = this._fireRound(a, w, spreadDeg, m, hand ? LOOK_DUAL_L : LOOK_DUAL_R, 'shoot_dualies', 0.5, hand ? 1.05 : 0.97);
     emit('weapon:fire', { actor: a, weapon: w.id, muzzle: m.clone(), dir: dir.clone(), hand });
-    const wr = a.weaponRunner;
-    if (wr.rumbleT <= 0) { wr.rumbleT = 0.08; rumble(a, hand ? 0.01 : 0.03, hand ? 0.1 : 0.05, 35); }
   }
 
   fireSplatling(a, w, spreadDeg) {
     const m = this._muzzle(a, _v.set(0, 0, 0));
     const dir = this._fireRound(a, w, spreadDeg, m, LOOK_SPLAT, 'shoot_splatling', 0.46, 1);
     emit('weapon:fire', { actor: a, weapon: w.id, muzzle: m.clone(), dir: dir.clone() });
-    const wr = a.weaponRunner;
-    if (wr.rumbleT <= 0) { wr.rumbleT = 0.07; rumble(a, 0.05, 0.12, 50); }
   }
 
   // Slosher wave: 8 heavy globs poured over ~0.09 s along one lob (the lower ballistic solution onto the crosshair,
@@ -783,7 +770,6 @@ export class Projectiles {
     _dir.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
     if (a.isLocal || a._nearCamera()) G.fx?.muzzle(m, _dir, a.color, 'blaster');
     emit('weapon:fire', { actor: a, weapon: w.id, muzzle: m.clone(), dir: _dir.clone() });
-    rumble(a, 0.18, 0.3, 90);
   }
 
   // head glob landing: a heavy splash that also catches anyone standing next to where it lands
@@ -822,7 +808,6 @@ export class Projectiles {
     }
     if (a.isLocal) emit('recoil', { amount: 0.012 });   // one clean pitch kick; no trauma shake for your own gun
     emit('weapon:fire', { actor: a, weapon: w.id, muzzle: m.clone(), dir: dir.clone() });
-    rumble(a, 0.28, 0.4, 95);
   }
 
   fireFlick(a, w) {
@@ -845,7 +830,6 @@ export class Projectiles {
     }
     if (a.isLocal) emit('recoil', { amount: 0.007 });
     emit('weapon:fire', { actor: a, weapon: w.id, muzzle: new THREE.Vector3(m.x + fx * 0.6, m.y + 0.3, m.z + fz * 0.6), dir: new THREE.Vector3(fx, Math.sin(up), fz).normalize() });
-    rumble(a, 0.3, 0.32, 110);
   }
 
   fireCharger(a, w, charge) {
@@ -904,7 +888,6 @@ export class Projectiles {
       // muzzle flash: fxHooks draws the charger-specific one on 'weapon:fire'
     }
     if (a.isLocal) emit('recoil', { amount: 0.005 + charge * 0.013 });
-    rumble(a, 0.12 + charge * 0.45, 0.2 + charge * 0.35, 80 + charge * 90);
   }
 
   // ---- bombs
@@ -968,8 +951,6 @@ export class Projectiles {
     G.audio?.play('bomb_explode', { pos: c });
     emit('shake', { pos: c.clone(), amount: 0.6 });
     emit('bomb:explode', { actor: b.owner, pos: c.clone(), team: b.team, radius: s.radius });
-    const loc = G.local;
-    if (loc && loc.alive) { const d = loc.pos.distanceTo(c); if (d < 14) rumble(loc, clamp(1 - d / 14, 0, 1) * 0.6, clamp(1 - d / 14, 0, 1) * 0.5, 160); }
     for (const e of G.actors) {
       if (e.team === b.team || !e.alive) continue;
       _v.copy(e.pos); _v.y += 0.7;
@@ -1026,7 +1007,6 @@ export class Projectiles {
       _vh.copy(victim.pos); _vh.y += victim.form === 'squid' ? 0.3 : 0.9;
       G.audio.play('ink_hit_body', { pos: _vh, volume: (victim.isLocal ? 0.3 : 0.4) + Math.min(0.45, dmg / 260), pitch: dmg >= 60 ? 0.8 : 1.05 });
     }
-    if (attacker.isLocal) rumble(attacker, killed ? 0.35 : 0.06, killed ? 0.4 : 0.16, killed ? 150 : 45);
   }
 
   // ---- per-frame

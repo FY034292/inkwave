@@ -22,12 +22,6 @@ const _ZERO_MOVE = Object.freeze(new THREE.Vector3());   // move input while pla
 const DOWN = new THREE.Vector3(0, -1, 0);
 const TAU = Math.PI * 2;
 
-// Local-player gamepad rumble (subtle, scaled by settings.rumble, no-op without a pad).
-export function rumble(actor, strong, weak, ms) {
-  if (!actor || !actor.isLocal || actor.isBot) return;
-  G.input?.rumble?.(strong, weak, ms);
-}
-
 export class Actor {
   constructor({ team, name, weapon = 'shooter', isLocal = false, isBot = false, style = { hair: 0, skin: 0 }, slot = 0, CharacterClass }) {
     this.team = team; this.name = name; this.isLocal = isLocal; this.isBot = isBot; this.slot = slot;
@@ -175,7 +169,6 @@ export class Actor {
       const l = Math.hypot(lx, lz) || 1; lx /= l; lz /= l;
       const amp = clamp(amount / 60, 0.4, 1.2);
       this.character.trigger('hit', { x: lx, z: lz, amp, valueOf() { return amp; } });
-      if (this.isLocal) rumble(this, clamp(amount / 110, 0.18, 0.7), clamp(amount / 80, 0.25, 0.8), 90 + Math.min(120, amount));
     }
     emit('damage', { victim: this, attacker, amount, source });
     if (this.hp <= 0) { this.splat(attacker, source); return true; }
@@ -202,7 +195,6 @@ export class Actor {
       attacker.addTurf(G.paint.splat(_v, 1.7, attacker.team, { seed: Math.random() }));
     }
     this.character.setVisible(false);
-    if (this.isLocal) rumble(this, 0.8, 0.6, 260);
     emit('splatted', { victim: this, attacker, cause });
   }
 
@@ -519,7 +511,6 @@ export class Actor {
       const swim = isSquid && this.groundTeam === 1;
       if (!this.specialActive && (this.isLocal || this._nearCamera())) G.audio?.play(swim ? 'swim_splash' : 'land', { pos: this.pos, volume: clamp(speed / 14, 0.25, 0.9) });
       emit('actor:land', { actor: this, speed, surface: this.groundTeam, pos: this.pos.clone() });
-      if (this.isLocal && speed > 7) rumble(this, clamp((speed - 7) / 14, 0.05, 0.5), clamp(speed / 22, 0.1, 0.55), 70 + Math.min(90, speed * 4));
     }
   }
 
@@ -655,7 +646,6 @@ export class Actor {
         s.dur = 1.15 + Math.min(0.6, s.from.distanceTo(s.to) / 80);
         this.invuln = Math.max(this.invuln, s.dur + 0.2);
         G.fx?.burst(_v.copy(this.pos), _v2.set(0, 1, 0), this.color, { count: 16, speed: 6, size: 0.1 });
-        rumble(this, 0.35, 0.5, 140);
         emit('superjump', { actor: this, phase: 'flight', to: s.to.clone() });
       }
       return;
@@ -683,7 +673,6 @@ export class Actor {
         this.addTurf(G.paint.splat(_v.copy(this.pos).setY(this.pos.y + 0.3), 1.4, this.team, { seed: Math.random() }));
         G.fx?.burst(this.pos, _v2.set(0, 1, 0), this.color, { count: 14, speed: 5, size: 0.09 });
         if (this.isLocal) emit('shake', { amount: 0.35 });
-        rumble(this, 0.55, 0.45, 170);
         emit('superjump:land', { actor: this, pos: this.pos.clone() });
       }
     }
@@ -698,7 +687,6 @@ export class Actor {
     this._setClimb(false);
     emit('special:use', { actor: this, id });
     G.audio?.play('special_activate', { pos: this.isLocal ? undefined : this.pos, volume: this.isLocal ? 1 : 0.7 });
-    rumble(this, 0.25, 0.45, 120);
     if (id === 'slam') {
       this.specialActive = { id, t: 0, phase: 'rise', armor: true, startY: this.pos.y };
       this.vel.set(this.vel.x * 0.3, 11.5, this.vel.z * 0.3);
@@ -764,7 +752,6 @@ export class Actor {
     G.audio?.play('special_slam', { pos: c });
     emit('shake', { pos: c.clone(), amount: 1.0 });
     emit('special:slam', { actor: this, pos: c.clone(), radius: sp.radius });
-    rumble(this, 0.9, 0.7, 320);
     for (const a of G.actors) {
       if (a.team === this.team || !a.alive) continue;
       const d = a.pos.distanceTo(c);

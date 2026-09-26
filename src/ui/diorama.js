@@ -3,12 +3,12 @@
 // pins the people and places onto that view, Splatoon-style:
 //   · you (arrow = facing), your three teammates (weapon badge, name, [1]–[3]; greyed with a countdown while splatted),
 //     your base ([4]) — enemies are not shown
-//   · a virtual map cursor (pointer stays locked: mouse deltas / right stick) that snaps to pins and tilts the diorama a
-//     touch toward itself; click / A on a pin, or the number keys, to Super Jump — an ink arc previews the jump
+//   · a virtual map cursor (pointer stays locked: mouse deltas) that snaps to pins and tilts the diorama a
+//     touch toward itself; click on a pin, or use the number keys, to Super Jump — an ink arc previews the jump
 //   · a miniature finish: tilt-shift blur bands, a soft vignette, the stage name
 // Per frame it only projects a handful of points and writes transforms / CSS vars when they change.
 import { h, clamp } from './ui-util.js';
-import { keycap, weaponIcon, richText } from './ui-icons.js';
+import { keycap, weaponIcon } from './ui-icons.js';
 import { G } from '../core/ctx.js';
 import * as THREE from 'three';
 
@@ -116,16 +116,14 @@ export class DioramaOverlay {
         p.el.classList.toggle('is-hover', this.hover === i);
       }
     }
-    // ---- map cursor (pointer stays locked in play: steer with mouse deltas / right stick; snaps to pins)
+    // ---- map cursor (pointer stays locked in play: steer with mouse deltas; snaps to pins)
     const inp = G.input;
     let moved = false;
     if (inp) {
       const mdx = inp.locked ? inp.mouse.dx || 0 : 0, mdy = inp.locked ? inp.mouse.dy || 0 : 0;
-      let sx = 0, sy = 0;
-      if (inp.pad && inp.padAxis) { sx = inp.padAxis(2) || 0; sy = inp.padAxis(3) || 0; if (Math.hypot(sx, sy) < 0.15) sx = sy = 0; }
-      if (mdx || mdy || sx || sy) {
-        this.cx = clamp(this.cx + mdx / W * 1.1 + sx * dt * 0.75, 0.02, 0.98);
-        this.cy = clamp(this.cy + mdy / H * 1.1 + sy * dt * 0.75, 0.04, 0.96);
+      if (mdx || mdy) {
+        this.cx = clamp(this.cx + mdx / W * 1.1, 0.02, 0.98);
+        this.cy = clamp(this.cy + mdy / H * 1.1, 0.04, 0.96);
         moved = true; this.hasCursor = true;
       }
     }
@@ -147,9 +145,9 @@ export class DioramaOverlay {
     this.cursor.classList.toggle('is-snap', this.hover >= 0);
     // parallax: the diorama leans a touch toward where you point
     if (G.rig) { G.rig.dioLook.x = (this.cx - 0.5) * 2; G.rig.dioLook.y = (this.cy - 0.55) * 2; }
-    // click / A on a pin → super jump (number keys are handled by the player controller; flash their pin)
+    // click on a pin → super jump (number keys are handled by the player controller; flash their pin)
     if (inp && this.k > 0.7) {
-      const click = (inp.locked && inp.mouse.leftPressed) || inp.padPressed?.has?.(0);
+      const click = inp.locked && inp.mouse.leftPressed;
       if (click && this.hover >= 0) this._jump(this.hover, me);
       for (let i = 0; i < 4; i++) if (inp.wasPressed?.('Digit' + (i + 1))) this._flash(i);
     }
@@ -185,9 +183,6 @@ export class DioramaOverlay {
     const m = G.game?.mapDef;
     this.title.textContent = (m?.name || 'Stage').toUpperCase();
     this.when.textContent = G.game?.time === 'dusk' ? 'DUSK' : 'DAY';
-    const pad = G.input?.lastDevice === 'pad';
-    this.foot.innerHTML = pad
-      ? richText('Right stick to point · A or D-pad to Super Jump · release VIEW to close')
-      : `${keycap('1')}${keycap('2')}${keycap('3')} <span>Super Jump to a teammate</span> ${keycap('4')} <span>Base</span> <em>·</em> <span>Point + click a pin</span> <em>·</em> <span>release</span> ${keycap('TAB')}`;
+    this.foot.innerHTML = `${keycap('1')}${keycap('2')}${keycap('3')} <span>仲間へスーパージャンプ</span> ${keycap('4')} <span>スタート地点</span> <em>·</em> <span>ピンをクリックして選択</span> <em>·</em> <span>放して閉じる</span> ${keycap('TAB')}`;
   }
 }

@@ -539,6 +539,10 @@ export class PaintSystem {
     const cellA = f.cu * f.cv;
     for (let j = j0; j <= j1; j++) {
       for (let i = i0; i <= i1; i++) {
+        const k = f.grid + j * f.nu + i;
+        const prev = this.grid[k];
+        // Turf already owned by this team cannot change, so avoid the costly blob outline test.
+        if (prev === val) continue;
         let px = (i + 0.5) * f.cu - lu, py = (j + 0.5) * f.cv - lv;
         if (roll) {
           const qa = Math.abs(px * sdu + py * sdv) - r * BAND_L, qb = Math.abs(-px * sdv + py * sdu) - r * BAND_W;
@@ -555,9 +559,6 @@ export class PaintSystem {
           if (d > r * WOB_MAX) continue;
           if (d / (r * blobWobble(Math.atan2(py, px), seed)) > 0.97) continue;
         }
-        const k = f.grid + j * f.nu + i;
-        const prev = this.grid[k];
-        if (prev === val) continue;
         this.grid[k] = val;
         claimed += cellA;
         if (f.turf && !this.dead[k]) {

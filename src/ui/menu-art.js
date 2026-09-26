@@ -7,7 +7,7 @@
 import {
   h, clamp, lerp, easeInOutCubic, easeOutBack, easeOutCubic, rng, splatShape, splatSVG, shade, fmtInt, safeCall,
 } from './ui-util.js';
-import { SQUID, GLYPHS, WEAPON_ICONS, SPLAT_ICON, SPECIAL_ICONS, mouseGlyph, padGlyph, keycap } from './ui-icons.js';
+import { SQUID, GLYPHS, WEAPON_ICONS, SPLAT_ICON, SPECIAL_ICONS, mouseGlyph, keycap } from './ui-icons.js';
 
 const K = '#15121c';
 const TAU = Math.PI * 2;
@@ -47,18 +47,18 @@ export const awardIcon = (id) => AWARD_ICONS[id] || AWARD_ICONS.star;
 
 // ================================================================================== awards
 export const AWARDS = {
-  mvp: { label: 'MVP', metal: 'gold', icon: 'star', desc: 'Best all-round score on the winning team' },
-  turf: { label: 'TURF KING', metal: 'gold', icon: 'crown', desc: 'Most turf inked in the match' },
-  splats: { label: 'TOP SPLATTER', metal: 'silver', icon: 'splat', desc: 'Most splats in the match' },
-  inker: { label: 'TOP INKER', metal: 'silver', icon: 'roller', desc: 'Most turf inked on their team' },
-  untouchable: { label: 'UNTOUCHABLE', metal: 'bronze', icon: 'shield', desc: 'Never got splatted' },
-  survivor: { label: 'SURVIVOR', metal: 'bronze', icon: 'buoy', desc: 'Splatted the fewest times' },
-  pure: { label: 'PURE PAINTER', metal: 'bronze', icon: 'brush', desc: 'Top-3 turf without splatting anyone' },
+  mvp: { label: 'MVP', metal: 'gold', icon: 'star', desc: '勝利チームで最も活躍' },
+  turf: { label: '塗りキング', metal: 'gold', icon: 'crown', desc: '対戦で最も広く塗った' },
+  splats: { label: 'キルリーダー', metal: 'silver', icon: 'splat', desc: '対戦で最も多く倒した' },
+  inker: { label: '塗りリーダー', metal: 'silver', icon: 'roller', desc: 'チームで最も広く塗った' },
+  untouchable: { label: 'ノーダウン', metal: 'bronze', icon: 'shield', desc: '一度も倒されなかった' },
+  survivor: { label: 'サバイバー', metal: 'bronze', icon: 'buoy', desc: '倒された回数が最少' },
+  pure: { label: '塗り職人', metal: 'bronze', icon: 'brush', desc: '誰も倒さず塗り面積が上位3位' },
 };
 const AWARD_ORDER = ['mvp', 'turf', 'splats', 'inker', 'untouchable', 'survivor', 'pure'];
 export const MATCH_TAGS = {
-  close: { id: 'close', label: 'PHOTO FINISH', icon: 'stopwatch' },
-  landslide: { id: 'landslide', label: 'LANDSLIDE', icon: 'wave' },
+  close: { id: 'close', label: '接戦', icon: 'stopwatch' },
+  landslide: { id: 'landslide', label: '圧勝', icon: 'wave' },
 };
 
 /**
@@ -74,28 +74,28 @@ export function computeAwards(players = [], { win = true, percents = [50, 50] } 
     // Turf King — most turf in the lobby (ties share the crown)
     const mt = maxOf('turf');
     const kings = mt > 0 ? P.filter((p) => p.turf === mt) : [];
-    kings.forEach((p) => give(p, 'turf', `${fmtInt(p.turf)}p inked`));
+    kings.forEach((p) => give(p, 'turf', `${fmtInt(p.turf)}ポイント塗った`));
     // Top Inker — best painter on each team that doesn't already hold the crown
     for (const t of [0, 1]) {
       const team = P.filter((p) => p.team === t);
       if (!team.length || team.some((p) => kings.includes(p))) continue;
       const m = maxOf('turf', team);
-      if (m > 0) team.filter((p) => p.turf === m).forEach((p) => give(p, 'inker', `${fmtInt(p.turf)}p inked`));
+      if (m > 0) team.filter((p) => p.turf === m).forEach((p) => give(p, 'inker', `${fmtInt(p.turf)}ポイント塗った`));
     }
     // Top Splatter
     const ms = maxOf('splats');
-    if (ms > 0) P.filter((p) => p.splats === ms).forEach((p) => give(p, 'splats', `${ms} splat${ms === 1 ? '' : 's'}`));
+    if (ms > 0) P.filter((p) => p.splats === ms).forEach((p) => give(p, 'splats', `${ms}人倒した`));
     // Untouchable (never splatted — only special when few managed it) / Survivor (unique fewest)
     const active = P.filter((p) => p.turf >= 30 || p.splats > 0);
     const zero = active.filter((p) => p.deaths === 0);
-    if (zero.length && zero.length <= 3) zero.forEach((p) => give(p, 'untouchable', 'Never splatted'));
+    if (zero.length && zero.length <= 3) zero.forEach((p) => give(p, 'untouchable', '一度も倒されなかった'));
     else if (!zero.length && active.length) {
       const md = Math.min(...active.map((p) => p.deaths));
       const s = active.filter((p) => p.deaths === md);
-      if (s.length === 1) give(s[0], 'survivor', `Splatted ${md}×`);
+      if (s.length === 1) give(s[0], 'survivor', `倒された回数 ${md}回`);
     }
     // Pure Painter — top-3 turf with zero splats
-    [...P].sort((a, b) => b.turf - a.turf).slice(0, 3).filter((p) => p.splats === 0 && p.turf > 0).forEach((p) => give(p, 'pure', `${fmtInt(p.turf)}p · 0 splats`));
+    [...P].sort((a, b) => b.turf - a.turf).slice(0, 3).filter((p) => p.splats === 0 && p.turf > 0).forEach((p) => give(p, 'pure', `${fmtInt(p.turf)}ポイント · 撃破0人`));
     // MVP — best normalised all-round score on the winning team
     const self = P.find((p) => p.isSelf);
     const selfTeam = self ? self.team : 0;
@@ -105,7 +105,7 @@ export function computeAwards(players = [], { win = true, percents = [50, 50] } 
     const winners = P.filter((p) => p.team === wt && (p.turf > 0 || p.splats > 0));
     if (winners.length) {
       const best = winners.reduce((b, p) => (score(p) > score(b) + 1e-9 || (Math.abs(score(p) - score(b)) < 1e-9 && p.turf > b.turf) ? p : b));
-      give(best, 'mvp', 'Top all-round score');
+      give(best, 'mvp', '総合成績が最高');
     }
     for (const list of by) list.sort((x, y) => AWARD_ORDER.indexOf(x.id) - AWARD_ORDER.indexOf(y.id));
   }
@@ -136,11 +136,11 @@ export function awardBadge(aw) {
 
 // ================================================================================== ranks
 export const RANK_TIERS = [
-  { lv: 1, name: 'Fresh Recruit', cls: 'is-t0' },
-  { lv: 5, name: 'Turf Scrapper', cls: 'is-t1' },
-  { lv: 10, name: 'Ink Slinger', cls: 'is-t2' },
-  { lv: 20, name: 'Splat Veteran', cls: 'is-t3' },
-  { lv: 30, name: 'Tide Legend', cls: 'is-t4' },
+  { lv: 1, name: 'ルーキー', cls: 'is-t0' },
+  { lv: 5, name: '塗り屋', cls: 'is-t1' },
+  { lv: 10, name: 'ナワバリ職人', cls: 'is-t2' },
+  { lv: 20, name: '歴戦のエース', cls: 'is-t3' },
+  { lv: 30, name: '潮のレジェンド', cls: 'is-t4' },
 ];
 export const rankTier = (level) => RANK_TIERS.reduce((acc, r, i) => (level >= r.lv ? i : acc), 0);
 /** Shield emblem with one pip per tier (tier 0..4). Colour via CSS (--rk). */
@@ -472,7 +472,6 @@ export class InkWipe {
 // ================================================================================== settings previews
 // Every preview returns { el, set(value, settings), tick(dt) } and lives inside .iw-prev__stage (16:9 box).
 const MOUSE_RAD_PER_PX = 0.0021;   // src/game/player.js look scale
-const PAD_YAW_RATE = 3.4;          // rad/s at full stick × padSensitivity
 
 function frameSVG(inner, cls = '') {
   return `<svg class="iw-pvsvg ${cls}" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -491,7 +490,7 @@ const skyline = (w, seed) => {
   return out;
 };
 
-function previewLook(ctx, pad) {
+function previewLook(ctx) {
   const W = 960;
   const pano = `<svg class="iw-pv-pano" viewBox="0 0 ${W} 180" preserveAspectRatio="none" aria-hidden="true">
     <rect width="${W}" height="100" fill="#8fd3f5"/>${skyline(W, 17)}
@@ -501,15 +500,14 @@ function previewLook(ctx, pad) {
     ${Array.from({ length: 6 }, (_, i) => { const x = 40 + i * 160; return `<rect x="${x}" y="84" width="46" height="34" rx="6" fill="#fff7e8" stroke="#d9cbb0" stroke-width="3"/>`; }).join('')}
   </svg>`;
   const screen = h('div', { class: 'iw-pv-screen', html: pano + `<i class="iw-pv-xhair"></i>` });
-  const inputEl = h('div', { class: 'iw-pv-input', html: pad ? padGlyph('RS') : mouseGlyph('M') });
+  const inputEl = h('div', { class: 'iw-pv-input', html: mouseGlyph('M') });
   const stat = h('div', { class: 'iw-pv-stat' });
   const el = h('div', { class: 'iw-pv iw-pv--look' }, screen, h('div', { class: 'iw-pv-row' }, inputEl, stat));
   const panoEl = screen.firstElementChild;
   let v = +ctx.value || 1, ph = 0, shown = v;
   const set = (nv) => {
     v = +nv || 1;
-    if (pad) stat.innerHTML = `Full-stick 360° turn in <b>${(TAU / (PAD_YAW_RATE * v)).toFixed(2)} s</b>`;
-    else stat.innerHTML = `<b>${fmtInt(TAU / (MOUSE_RAD_PER_PX * v))} px</b> of mouse travel per 360° turn`;
+    stat.innerHTML = `一回転に必要なマウス移動 <b>${fmtInt(TAU / (MOUSE_RAD_PER_PX * v))}px</b>`;
   };
   set(v);
   return {
@@ -525,61 +523,8 @@ function previewLook(ctx, pad) {
   };
 }
 
-function previewInvert(ctx) {
-  const el = h('div', { class: 'iw-pv iw-pv--invert', html: `
-    <div class="iw-pv-inv__in">${mouseGlyph('M')}<i class="iw-pv-inv__arrow">${GLYPHS.next}</i></div>
-    <div class="iw-pv-inv__eq">${GLYPHS.next}</div>
-    ${frameSVG(`<g class="iw-pv-inv__view"><rect x="-20" y="96" width="360" height="140" fill="#e6d8bd"/><rect x="-20" y="-60" width="360" height="156" fill="#8fd3f5"/>
-      <circle cx="250" cy="40" r="16" fill="#fff6c8"/>${skyline(340, 5).replace(/<rect x="/g, '<rect transform="translate(-10 -3)" x="')}</g>
-      <g transform="translate(160 90)"><circle r="11" fill="none" stroke="#fff" stroke-width="4"/><circle r="11" fill="none" stroke="${K}" stroke-width="1.5"/><circle r="2.6" fill="#fff" stroke="${K}" stroke-width="1.2"/></g>`, 'iw-pv-inv__screen')}
-    <div class="iw-pv-cap"></div>` });
-  const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Push up <b>→ look DOWN</b>' : 'Push up <b>→ look UP</b>'; };
-  set(ctx.value);
-  return { el, set };
-}
-
-function previewFov(ctx) {
-  const T = [[-58, 118], [-46, 72], [-35, 128], [-20, 96], [-4, 140], [12, 110], [27, 78], [39, 132], [49, 100], [61, 60]];
-  const cx = 160, cy = 172, R = 158;
-  const pos = ([a, d]) => [cx + Math.sin(a * Math.PI / 180) * d, cy - Math.cos(a * Math.PI / 180) * d];
-  const blocks = [[36, 40, 34, 22], [238, 36, 40, 26], [120, 64, 30, 20], [72, 118, 26, 26], [226, 114, 30, 22]]
-    .map(([x, y, w, hh]) => `<rect x="${x}" y="${y + 4}" width="${w}" height="${hh}" rx="5" fill="#cdbd9f"/><rect x="${x}" y="${y}" width="${w}" height="${hh}" rx="5" fill="#fffaf0" stroke="#cdbd9f" stroke-width="2"/>`).join('');
-  const wedge = (deg) => {
-    const hh = (deg / 2) * Math.PI / 180;
-    const x1 = cx - Math.sin(hh) * R, y1 = cy - Math.cos(hh) * R, x2 = cx + Math.sin(hh) * R;
-    return `M${cx} ${cy} L${x1.toFixed(1)} ${y1.toFixed(1)} A${R} ${R} 0 0 1 ${x2.toFixed(1)} ${y1.toFixed(1)} Z`;
-  };
-  const el = h('div', { class: 'iw-pv iw-pv--fov', html: `<svg class="iw-pvsvg" viewBox="0 0 320 180" aria-hidden="true">
-      <rect x="1" y="1" width="318" height="178" rx="14" fill="#efe4cf"/>
-      <g stroke="#dccdb0" stroke-width="2">${Array.from({ length: 9 }, (_, i) => `<path d="M${i * 40} 0 V180"/>`).join('')}${Array.from({ length: 5 }, (_, i) => `<path d="M0 ${i * 40} H320"/>`).join('')}</g>
-      ${blocks}
-      <path class="iw-pv-fov__ghost" d="${wedge(82)}"/>
-      <path class="iw-pv-fov__wedge" d="${wedge(+ctx.value || 82)}"/>
-      ${T.map((t) => { const [x, y] = pos(t); return `<g class="iw-pv-fov__t" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><circle r="10" class="iw-pv-fov__halo"/><circle r="6.5" class="iw-fb" stroke="${K}" stroke-width="2.5"/><circle cx="-1.8" cy="-1" r="1.4" fill="#fff"/><circle cx="1.8" cy="-1" r="1.4" fill="#fff"/></g>`; }).join('')}
-      <g transform="translate(${cx - 14} ${cy - 30}) scale(.44)" style="color:var(--a)">${SQUID.replace('class="iw-ico iw-squid"', 'x="0" y="0" width="64" height="64"')}</g>
-      <rect x="1" y="1" width="318" height="178" rx="14" fill="none" stroke="${K}" stroke-width="3"/>
-    </svg><div class="iw-pv-cap"></div>` });
-  const wedgeEl = el.querySelector('.iw-pv-fov__wedge');
-  const tEls = [...el.querySelectorAll('.iw-pv-fov__t')];
-  const cap = el.querySelector('.iw-pv-cap');
-  let target = +ctx.value || 82, cur = target, lastN = -1;
-  const apply = () => {
-    wedgeEl.setAttribute('d', wedge(cur));
-    let n = 0;
-    tEls.forEach((g, i) => { const inside = Math.abs(T[i][0]) <= cur / 2 && T[i][1] <= R; g.classList.toggle('is-in', inside); if (inside) n++; });
-    if (n !== lastN) { lastN = n; cap.innerHTML = `<b>${n} of ${T.length}</b> squidkids in view`; }
-  };
-  apply();
-  return {
-    el,
-    set: (v) => { target = +v || 82; },
-    tick: (dt) => { if (Math.abs(target - cur) > 0.05) { cur += (target - cur) * (1 - Math.exp(-dt * 14)); apply(); } },
-  };
-}
-
 function previewQuality(ctx) {
-  const tiers = [['low', 'LOW'], ['medium', 'MED'], ['high', 'HIGH'], ['ultra', 'ULTRA']];
+  const tiers = [['low', '低'], ['medium', '中'], ['high', '高'], ['ultra', '最高']];
   const ladder = h('div', { class: 'iw-pv-ladder' }, tiers.map(([id, lab], i) => h('span', { class: 'iw-pv-ladder__col', 'data-q': id, style: { '--h': (0.3 + i * 0.233).toFixed(3) } }, h('i'), h('b', null, lab))));
   const chips = h('div', { class: 'iw-pv-chips' });
   const el = h('div', { class: 'iw-pv iw-pv--quality' }, ladder, chips);
@@ -588,12 +533,12 @@ function previewQuality(ctx) {
     const q = Q[v] || Q.high || {};
     ladder.querySelectorAll('.iw-pv-ladder__col').forEach((c) => c.classList.toggle('is-on', c.dataset.q === v));
     const rows = [
-      ['Pixel density', `up to ${(+q.pixelRatio || 1).toFixed(q.pixelRatio % 1 ? 2 : 1).replace(/0$/, '')}×`],
-      ['Shadow map', `${q.shadowSize || 0}px`],
-      ['Anti-aliasing', q.msaa ? `${q.msaa}× MSAA` : 'Off'],
-      ['Ink detail', `${Math.round((q.paintAtlas || 2048) / 1024)}K atlas`],
-      ['Ambient occlusion', q.ao ? 'On' : 'Off'],
-      ['Particles', `${Math.round((q.particles ?? 1) * 100)}%`],
+      ['画素密度', `最大 ${(+q.pixelRatio || 1).toFixed(q.pixelRatio % 1 ? 2 : 1).replace(/0$/, '')}×`],
+      ['影の品質', `${q.shadowSize || 0}px`],
+      ['輪郭補正', q.msaa ? `${q.msaa}倍` : 'オフ'],
+      ['インクの描写', `${Math.round((q.paintAtlas || 2048) / 1024)}K テクスチャ`],
+      ['陰影', q.ao ? 'オン' : 'オフ'],
+      ['エフェクト', `${Math.round((q.particles ?? 1) * 100)}%`],
     ];
     chips.innerHTML = '';
     rows.forEach(([k, val], i) => chips.appendChild(h('span', { class: 'iw-pv-chip' + (/Off|0%/.test(val) ? ' is-off' : ''), style: { '--i': i } }, h('small', null, k), h('b', null, val))));
@@ -611,7 +556,7 @@ function previewShadows(ctx) {
     <g transform="translate(160 74) scale(.5)" style="color:var(--a)">${SQUID.replace('class="iw-ico iw-squid"', 'x="0" y="0" width="64" height="64"')}</g>
     <path class="iw-fa" d="M60 150 q20 -9 40 0 q10 6 -6 12 q-20 7 -34 -2 q-8 -6 0 -10z"/>`) + '<div class="iw-pv-cap"></div>' });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Soft sun shadows <b>ON</b>' : 'Shadows <b>OFF</b> — faster on older machines'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? '太陽の影を<b>表示</b>' : '影を<b>非表示</b>にして動作を軽くする'; };
   set(ctx.value);
   return { el, set };
 }
@@ -627,7 +572,7 @@ function previewBloom(ctx) {
       <g transform="translate(136 66) scale(.75)" style="color:#fff">${SPECIAL_ICONS.slam.replace('class="iw-ico "', 'x="0" y="0" width="64" height="64"')}</g>
       <rect x="1" y="1" width="318" height="178" rx="14" fill="none" stroke="${K}" stroke-width="3"/></svg><div class="iw-pv-cap"></div>` });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Bright ink and specials <b>glow</b>' : 'Glow <b>OFF</b>'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? '明るいインクを<b>光らせる</b>' : '光のにじみを<b>オフ</b>'; };
   set(ctx.value);
   return { el, set };
 }
@@ -640,9 +585,9 @@ function hudFrame(inner) {
     <rect x="128" y="10" width="64" height="16" rx="8" fill="${K}"/><text x="160" y="22" text-anchor="middle" font-family="Titan One, sans-serif" font-size="11" fill="#fff">2:47</text>${inner}`);
 }
 function previewFps(ctx) {
-  const el = h('div', { class: 'iw-pv iw-pv--fps', html: hudFrame(`<g class="iw-pv-pop"><rect x="12" y="10" width="58" height="18" rx="6" fill="${K}"/><text x="41" y="23" text-anchor="middle" font-family="Rubik, sans-serif" font-weight="800" font-size="10.5" fill="#7dffa8">60 FPS</text></g>`) + '<div class="iw-pv-cap"></div>' });
+  const el = h('div', { class: 'iw-pv iw-pv--fps', html: hudFrame(`<g class="iw-pv-pop"><rect x="12" y="10" width="58" height="18" rx="6" fill="${K}"/><text x="41" y="23" text-anchor="middle" font-family="Rubik, sans-serif" font-weight="800" font-size="10.5" fill="#7dffa8">毎秒60</text></g>`) + '<div class="iw-pv-cap"></div>' });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Frame counter <b>shown</b> in matches' : 'Frame counter <b>hidden</b>'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? '対戦中のフレーム数を<b>表示</b>' : 'フレーム数を<b>非表示</b>'; };
   set(ctx.value);
   return { el, set };
 }
@@ -651,18 +596,18 @@ function previewMinimap(ctx) {
       <path class="iw-fa" d="M238 118 q10 -6 20 0 q6 5 -4 10 q-10 4 -16 -2z M244 140 q9 -5 16 2 q4 6 -6 8 q-9 1 -10 -10z"/><path class="iw-fb" d="M280 112 q9 -4 16 2 q4 6 -6 9 q-9 2 -10 -11z M276 140 q10 -6 20 1 q5 6 -6 10 q-11 2 -14 -11z"/>
       <circle cx="252" cy="132" r="4" fill="#fff" stroke="${K}" stroke-width="2"/></g>`) + '<div class="iw-pv-cap"></div>' });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Turf minimap <b>in the corner</b>' : 'Minimap <b>hidden</b> — hold TAB for the big map'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? '画面の隅に<b>ミニマップを表示</b>' : 'ミニマップを<b>非表示</b>。大きなマップはTAB長押し'; };
   set(ctx.value);
   return { el, set };
 }
 
 function previewShake(ctx) {
-  const el = h('div', { class: 'iw-pv iw-pv--shake', html: `<div class="iw-pv-shake__frame">${hudFrame(`<g transform="translate(212 112)"><g class="iw-pv-boom"><path class="iw-fb" d="${splatShape(0, 0, 22, { seed: 9, arms: 9, drops: 0 }).core}"/><text y="5" text-anchor="middle" font-family="Titan One, sans-serif" font-size="13" fill="#fff" stroke="${K}" stroke-width="3" paint-order="stroke">BOOM</text></g></g>`)}</div><div class="iw-pv-cap"></div>` });
+  const el = h('div', { class: 'iw-pv iw-pv--shake', html: `<div class="iw-pv-shake__frame">${hudFrame(`<g transform="translate(212 112)"><g class="iw-pv-boom"><path class="iw-fb" d="${splatShape(0, 0, 22, { seed: 9, arms: 9, drops: 0 }).core}"/><text y="5" text-anchor="middle" font-family="Titan One, sans-serif" font-size="13" fill="#fff" stroke="${K}" stroke-width="3" paint-order="stroke">ドカン</text></g></g>`)}</div><div class="iw-pv-cap"></div>` });
   const frame = el.querySelector('.iw-pv-shake__frame');
   const boom = el.querySelector('.iw-pv-boom');
   const cap = el.querySelector('.iw-pv-cap');
   let v = +ctx.value, t = 0.6;
-  const set = (nv) => { v = clamp(+nv || 0); cap.innerHTML = v <= 0 ? 'Screen shake <b>OFF</b>' : `Shake strength <b>${Math.round(v * 100)}%</b>`; };
+  const set = (nv) => { v = clamp(+nv || 0); cap.innerHTML = v <= 0 ? '画面の揺れを<b>オフ</b>' : `揺れの強さ <b>${Math.round(v * 100)}%</b>`; };
   set(v);
   return {
     el, set,
@@ -694,7 +639,7 @@ function previewAudio(ctx, key) {
   const set = (nv, ss) => {
     v = clamp(+nv || 0); if (ss) s = ss;
     const e = eff();
-    cap.innerHTML = key === 'master' ? `Overall output <b>${Math.round(v * 100)}%</b>` : `Heard at <b>${Math.round(e * 100)}%</b> after master volume`;
+    cap.innerHTML = key === 'master' ? `全体の音量 <b>${Math.round(v * 100)}%</b>` : `全体の音量を反映すると <b>${Math.round(e * 100)}%</b>`;
     el.classList.toggle('is-mute', e <= 0.001);
   };
   set(v);
@@ -715,60 +660,12 @@ function previewAudio(ctx, key) {
   };
 }
 
-function previewAimAssist(ctx) {
-  // a crosshair sweeps past a rival; the assist bends its path onto the target (strength = the slider)
-  const el = h('div', { class: 'iw-pv iw-pv--aim', html: frameSVG(`
-    <g transform="translate(160 104)"><ellipse cx="0" cy="34" rx="30" ry="7" fill="#000" opacity=".16"/>
-      <g transform="translate(-22 -26) scale(.7)" style="color:var(--b)">${SQUID.replace('class="iw-ico iw-squid"', 'x="0" y="0" width="64" height="64"')}</g></g>
-    <path class="iw-pv-aim__trail" d="M20 90 L300 90" fill="none"/>
-    <g class="iw-pv-aim__x"><circle r="13" fill="none" stroke="#fff" stroke-width="4"/><circle r="13" fill="none" stroke="${K}" stroke-width="1.6"/><circle r="3" fill="#fff" stroke="${K}" stroke-width="1.4"/>
-      <path d="M0 -21 V-15 M0 21 V15 M-21 0 H-15 M21 0 H15" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></g>`) + '<div class="iw-pv-cap"></div>' });
-  const xEl = el.querySelector('.iw-pv-aim__x'), trail = el.querySelector('.iw-pv-aim__trail'), cap = el.querySelector('.iw-pv-cap');
-  let v = clamp(+ctx.value || 0), t = 0;
-  const set = (nv) => { v = clamp(+nv || 0); cap.innerHTML = v <= 0.001 ? 'Aim assist <b>OFF</b>' : `Pull strength <b>${Math.round(v * 100)}%</b>`; };
-  set(v);
-  return {
-    el, set,
-    tick: (dt) => {
-      t = (t + dt / 2.6) % 1;
-      // raw sweep left → right; assisted path eases toward the target centre (160, 100) as it passes
-      const x0 = 30 + t * 260, near = Math.exp(-Math.pow((x0 - 160) / 60, 2));
-      const x = x0 + (160 - x0) * near * v * 0.55, y = 64 + (100 - 64) * near * v;
-      xEl.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
-      if (t < 0.02) trail.setAttribute('d', `M${x.toFixed(1)} ${y.toFixed(1)}`);
-      else trail.setAttribute('d', `${trail.getAttribute('d')} L${x.toFixed(1)} ${y.toFixed(1)}`);
-    },
-  };
-}
-
 function previewAimMouse(ctx) {
-  const el = h('div', { class: 'iw-pv iw-pv--aimm', html: `<div class="iw-pv-aimm__row"><span class="iw-pv-aimm__dev is-pad">${GLYPHS.gamepad}<b>ASSIST</b></span><span class="iw-pv-aimm__dev is-mouse">${mouseGlyph('M')}<b>ASSIST</b></span></div><div class="iw-pv-cap"></div>` });
+  const el = h('div', { class: 'iw-pv iw-pv--aimm', html: `<div class="iw-pv-aimm__row"><span class="iw-pv-aimm__dev is-mouse">${mouseGlyph('M')}<b>補助</b></span></div><div class="iw-pv-cap"></div>` });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Assist on <b>controller and mouse</b> (lighter on mouse)' : 'Assist on <b>controller only</b>'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'マウスのエイム補助を<b>オン</b>' : 'マウスのエイム補助を<b>オフ</b>'; };
   set(ctx.value);
   return { el, set };
-}
-
-function previewRumble(ctx) {
-  const el = h('div', { class: 'iw-pv iw-pv--rumble', html: `<div class="iw-pv-rumble__pad">${GLYPHS.gamepad}<i class="l"></i><i class="r"></i></div><div class="iw-pv-cap"></div>` });
-  const pad = el.querySelector('.iw-pv-rumble__pad'), cap = el.querySelector('.iw-pv-cap');
-  let v = clamp(+ctx.value || 0), t = 0.4;
-  const set = (nv) => { v = clamp(+nv || 0); cap.innerHTML = v <= 0 ? 'Vibration <b>OFF</b>' : `Rumble strength <b>${Math.round(v * 100)}%</b>`; el.classList.toggle('is-off', v <= 0); };
-  set(v);
-  return {
-    el, set,
-    tick: (dt) => {
-      t -= dt;
-      if (t > 0) return;
-      t = 1.5;
-      if (v > 0 && pad.animate) {
-        const a = 7 * v, kf = [];
-        for (let i = 0; i <= 10; i++) { const d = (1 - i / 10) * a; kf.push({ transform: `translate(${((i % 2 ? 1 : -1) * d).toFixed(1)}px, ${((i % 3 === 1 ? -1 : 1) * d * 0.35).toFixed(1)}px) rotate(${((i % 2 ? -1 : 1) * d * 0.5).toFixed(2)}deg)` }); }
-        pad.animate(kf, { duration: 520, easing: 'linear' });
-        el.classList.remove('is-buzz'); void el.offsetWidth; el.classList.add('is-buzz'); // eslint-disable-line no-void
-      }
-    },
-  };
 }
 
 function previewColorblind(ctx) {
@@ -776,8 +673,8 @@ function previewColorblind(ctx) {
   const cb = ctx.cbPalette || { a: '#ffd21a', b: '#2a52ff' };
   const pair = (a, b) => `<span class="iw-pv-pair"><i style="background:${a}"></i><i style="background:${b}"></i></span>`;
   const el = h('div', { class: 'iw-pv iw-pv--cb', html: `
-    <div class="iw-pv-pal iw-pv-pal--std"><small>STANDARD INKS · rotate each match</small><div class="iw-pv-pal__row">${pals.map((p) => pair(p.a, p.b)).join('')}</div><i class="iw-pv-pal__check">${GLYPHS.check}</i></div>
-    <div class="iw-pv-pal iw-pv-pal--cb"><small>COLORBLIND-SAFE · always</small><div class="iw-pv-pal__row">${pair(cb.a, cb.b)}<span class="iw-pv-pal__name">${(cb.names || ['Sun', 'Sea']).join(' vs ')}</span></div><i class="iw-pv-pal__check">${GLYPHS.check}</i></div>` });
+    <div class="iw-pv-pal iw-pv-pal--std"><small>標準のインク色 · 対戦ごとに変更</small><div class="iw-pv-pal__row">${pals.map((p) => pair(p.a, p.b)).join('')}</div><i class="iw-pv-pal__check">${GLYPHS.check}</i></div>
+    <div class="iw-pv-pal iw-pv-pal--cb"><small>見分けやすいインク色 · 常に固定</small><div class="iw-pv-pal__row">${pair(cb.a, cb.b)}<span class="iw-pv-pal__name">${(cb.names || ['サン', 'シー']).join(' 対 ')}</span></div><i class="iw-pv-pal__check">${GLYPHS.check}</i></div>` });
   const set = (v) => el.classList.toggle('is-on', !!v);
   set(ctx.value);
   return { el, set };
@@ -808,7 +705,7 @@ function previewLength(ctx) {
     v = +v || 180;
     num.textContent = `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
     arc.setAttribute('stroke-dasharray', `${((v / max) * 100).toFixed(1)} 100`);
-    cap.innerHTML = v < 120 ? 'A quick <b>sprint</b> — every second counts' : 'The full <b>turf war</b> — room for comebacks';
+    cap.innerHTML = v < 120 ? '短時間の<b>勝負</b>。一秒が大事' : 'じっくり<b>ナワバリバトル</b>。逆転のチャンスも';
     num.classList.remove('is-pop'); void num.offsetWidth; num.classList.add('is-pop'); // eslint-disable-line no-void
   };
   set(ctx.value);
@@ -816,9 +713,9 @@ function previewLength(ctx) {
 }
 
 function previewLink() {
-  const el = h('div', { class: 'iw-pv iw-pv--link', html: `<div class="iw-pv-link__art"><i>${GLYPHS.keyboard}</i><i>${GLYPHS.gamepad}</i></div>
-    <div class="iw-pv-link__keys">${keycap('W')}${keycap('A')}${keycap('S')}${keycap('D')}<em>+</em>${mouseGlyph('L')}<em>·</em>${padGlyph('LS')}${padGlyph('RT')}</div>
-    <div class="iw-pv-cap">Every binding for <b>keyboard, mouse and controller</b></div>` });
+  const el = h('div', { class: 'iw-pv iw-pv--link', html: `<div class="iw-pv-link__art"><i>${GLYPHS.keyboard}</i></div>
+    <div class="iw-pv-link__keys">${keycap('W')}${keycap('A')}${keycap('S')}${keycap('D')}<em>+</em>${mouseGlyph('L')}</div>
+    <div class="iw-pv-cap"><b>キーボードとマウス</b>の操作一覧</div>` });
   return { el, set() {} };
 }
 
@@ -837,9 +734,7 @@ function previewReset() {
 /** ctx: { value, settings, qualityTable, palettes, cbPalette, diffs, diffInfo, durations, tab } */
 export function createPreview(key, ctx = {}) {
   switch (key) {
-    case 'sensitivity': return previewLook(ctx, false);
-    case 'padSensitivity': return previewLook(ctx, true);
-    case 'invertY': return previewInvert(ctx);
+    case 'sensitivity': return previewLook(ctx);
     case 'quality': return previewQuality(ctx);
     case 'fov': return previewFov(ctx);
     case 'shadows': return previewShadows(ctx);
@@ -847,9 +742,7 @@ export function createPreview(key, ctx = {}) {
     case 'showFps': return previewFps(ctx);
     case 'minimap': return previewMinimap(ctx);
     case 'cameraShake': return previewShake(ctx);
-    case 'aimAssist': return previewAimAssist(ctx);
     case 'aimAssistMouse': return previewAimMouse(ctx);
-    case 'rumble': return previewRumble(ctx);
     case 'master': case 'music': case 'sfx': return previewAudio(ctx, key);
     case 'colorblind': return previewColorblind(ctx);
     case 'difficulty': return previewDifficulty(ctx);

@@ -146,9 +146,9 @@ export class Renderer {
     if (this.bloom) this.bloom.enabled = !!(this.q.bloom && settings.bloom);
   }
 
-  // Dynamic resolution (never on ultra): scale the render density between 0.75 and 1 of the quality preset.
+  // Preserve native CSS pixel density when possible, dropping resolution only when frames need it.
   setDynamicScale(s) {
-    s = Math.max(0.75, Math.min(1, s));
+    s = Math.max(0.65, Math.min(1, s));
     if (Math.abs(s - this.dynScale) < 0.01) return;
     this.dynScale = s;
     const pr = Math.min(window.devicePixelRatio || 1, this.q.pixelRatio) * s;

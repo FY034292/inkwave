@@ -1120,8 +1120,6 @@ export class Showcase {
     st.group.position.y = stageY;
     const deckY = stageY + PED.ink;
     // turntable: user drag + momentum; otherwise a slow sway that drifts home
-    const rx = PEDESTAL.has(this.mode) && G.input?.padAxis ? G.input.padAxis(2) : 0;
-    if (Math.abs(rx) > 0.25) { this.spinVel = lerp(this.spinVel, rx * 3.4, 1 - Math.exp(-10 * dt)); this.sinceDrag = 0; }
     if (!this.drag) {
       this.spin += this.spinVel * dt;
       this.spinVel *= Math.exp(-3.4 * dt);

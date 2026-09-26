@@ -171,7 +171,6 @@ export const GLYPHS = {
   pencil: svg(`<path d="M14 50 L17 38 L42 13 L51 22 L26 47 Z" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/><path d="M36 19 L45 28" stroke="var(--k, #15121c)" stroke-width="3.5"/>`),
   map: svg(`<path d="M8 16 L24 10 L40 16 L56 10 L56 48 L40 54 L24 48 L8 54 Z" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/><path d="M24 10 L24 48 M40 16 L40 54" stroke="var(--k, #15121c)" stroke-width="3.5"/>`),
   bot: svg(`<rect x="12" y="18" width="40" height="32" rx="10" fill="currentColor"/><path d="M32 18 L32 9" ${G} stroke-width="4.5"/><circle cx="32" cy="8" r="4" fill="currentColor"/><circle cx="24" cy="34" r="4.5" fill="var(--k, #15121c)"/><circle cx="40" cy="34" r="4.5" fill="var(--k, #15121c)"/>`),
-  gamepad: svg(`<path d="M18 17 L46 17 Q58 17 60 34 Q62 50 54 50 Q49 50 44 42 L20 42 Q15 50 10 50 Q2 50 4 34 Q6 17 18 17 Z" fill="currentColor"/><path d="M19 25 L19 35 M14 30 L24 30" stroke="var(--k, #15121c)" stroke-width="4" stroke-linecap="round"/><circle cx="44" cy="27" r="3.2" fill="var(--k, #15121c)"/><circle cx="50" cy="33" r="3.2" fill="var(--k, #15121c)"/>`),
   keyboard: svg(`<rect x="4" y="16" width="56" height="34" rx="7" fill="currentColor"/><g fill="var(--k, #15121c)"><rect x="11" y="23" width="6" height="6" rx="1.5"/><rect x="20" y="23" width="6" height="6" rx="1.5"/><rect x="29" y="23" width="6" height="6" rx="1.5"/><rect x="38" y="23" width="6" height="6" rx="1.5"/><rect x="47" y="23" width="6" height="6" rx="1.5"/><rect x="11" y="32" width="6" height="6" rx="1.5"/><rect x="47" y="32" width="6" height="6" rx="1.5"/><rect x="20" y="40" width="24" height="5" rx="2"/></g>`),
   monitor: svg(`<rect x="6" y="10" width="52" height="34" rx="6" fill="currentColor"/><path d="M24 54 L40 54 M32 44 L32 54" ${G} stroke-width="5"/><path d="M14 36 L24 24 L31 31 L38 22 L50 36" fill="none" stroke="var(--k, #15121c)" stroke-width="4" stroke-linejoin="round"/>`),
   speaker: svg(`<path d="M8 24 L20 24 L34 12 L34 52 L20 40 L8 40 Z" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/><path d="M42 23 Q48 32 42 41 M48 16 Q59 32 48 48" ${G} stroke-width="5"/>`),
@@ -207,7 +206,6 @@ export const DEATH_ICON = svg(`<g ${O} stroke-width="3.4">
   <path d="M21.5 31.5 L29 39 M29 31.5 L21.5 39 M35 31.5 L42.5 39 M42.5 31.5 L35 39" stroke="${K}" stroke-width="3.6" stroke-linecap="round"/>`);
 
 // ------------------------------------------------------------------ input glyphs
-const PAD_FACE = { A: '#3fc46e', B: '#ff4f5a', X: '#3c8cff', Y: '#ffc31d' };
 /** Keycap. `k` is the label ('W', 'SHIFT', 'SPACE', ...). */
 export function keycap(k) {
   const s = String(k);
@@ -225,22 +223,10 @@ export function mouseGlyph(which = 'L') {
     <path d="M24 6 Q38.5 6 39.7 24 L24 24 Z" style="fill:${r}" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>
     <rect x="21.5" y="11" width="5" height="9" rx="2.5" fill="${K}"/></svg></span>`;
 }
-/** Gamepad glyph: 'A' 'B' 'X' 'Y' 'LB' 'RB' 'LT' 'RT' 'LS' 'RS' 'View' 'Start' 'DPad' */
-export function padGlyph(b) {
-  if (PAD_FACE[b]) return `<span class="iw-pad iw-pad--face" style="--pc:${PAD_FACE[b]}">${b}</span>`;
-  if (b === 'LB' || b === 'RB') return `<span class="iw-pad iw-pad--bumper">${b}</span>`;
-  if (b === 'LT' || b === 'RT') return `<span class="iw-pad iw-pad--trigger">${b}</span>`;
-  if (b === 'LS' || b === 'RS') return `<span class="iw-pad iw-pad--stick">${b[0]}</span>`;
-  if (b === 'View') return `<span class="iw-pad iw-pad--sys"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="10" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="9" y="10" width="10" height="8" rx="1.5" fill="currentColor"/></svg></span>`;
-  if (b === 'Start') return `<span class="iw-pad iw-pad--sys"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7 H19 M5 12 H19 M5 17 H19" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></span>`;
-  if (b === 'DPad') return `<span class="iw-pad iw-pad--sys"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3 H15 V9 H21 V15 H15 V21 H9 V15 H3 V9 H9 Z" fill="currentColor"/></svg></span>`;
-  return `<span class="iw-pad iw-pad--bumper">${esc(b)}</span>`;
-}
-/** Renders "Hold [SHIFT] to swim" → text with keycaps. `{A}` renders a gamepad glyph. */
+/** Renders "[SHIFT]長押しで泳ぐ" with keycaps. */
 export function richText(str) {
   return esc(str)
-    .replace(/\[([^\]]{1,10})\]/g, (_, k) => (k === 'LMB' ? mouseGlyph('L') : k === 'RMB' ? mouseGlyph('R') : keycap(k)))
-    .replace(/\{([A-Za-z]{1,5})\}/g, (_, k) => padGlyph(k));
+    .replace(/\[([^\]]{1,10})\]/g, (_, k) => (k === 'LMB' ? mouseGlyph('L') : k === 'RMB' ? mouseGlyph('R') : keycap(k)));
 }
 
 // ------------------------------------------------------------------ logo

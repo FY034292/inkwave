@@ -1,8 +1,6 @@
 // Local player controller: input → actor intent + camera yaw/pitch + aim point.
 //
-// Look: mouse is raw 1:1 (pointer lock, unadjusted movement — no smoothing, no acceleration). Gamepad uses a radial
-// dead zone, a two-stage response curve (fine control near centre, fast at the edge) and a short edge boost for quick
-// turn-arounds. Aim assist (gamepad by default; settings.aimAssistMouse opts mouse in, gentler): friction slows the
+// Look: mouse is raw 1:1 (pointer lock, unadjusted movement — no smoothing, no acceleration). Aim assist: friction slows the
 // look near an enemy under the crosshair, tracking assist carries a fraction of the target's angular motion while
 // you are actively aiming or moving — never an auto-snap. Bullet magnetism pulls shots onto the body line of an enemy
 // the crosshair is actually touching (at the height you aimed), so hits register exactly as they look.
@@ -14,11 +12,7 @@ import { Physics, Hit } from './physics.js';
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _fwd = new THREE.Vector3(), _c = new THREE.Vector3();
 const _hit = new Hit();
 const _res = { t: 0, dist: 0 };
-const _stick = { x: 0, y: 0, mag: 0 };
 const DEG = Math.PI / 180;
-
-// fine near the centre, fast at the edge (continuous, slope-matched at the knee)
-function lookCurve(m) { return m < 0.75 ? 0.62 * Math.pow(m / 0.75, 1.6) : 0.62 + ((m - 0.75) / 0.25) * 0.38; }
 
 export class PlayerController {
   constructor(actor, rig, input) {
@@ -26,9 +20,7 @@ export class PlayerController {
     this.mapHeld = false;
     this.onTarget = null;
     this.inRange = false;
-    this.padLook = { x: 0, y: 0 };
     this.enabled = true;
-    this.edgeT = 0;
     this.assist = { target: null, yaw: 0, pitch: 0, has: false, strength: 0 };
   }
 
@@ -40,35 +32,19 @@ export class PlayerController {
       this.assist.has = false;
       return;
     }
-    const usingPad = !!inp.pad && inp.lastDevice === 'pad';
     // ---- aim assist target (computed from last frame's camera; cheap)
-    const as = this._assistTarget(usingPad ? (s.aimAssist ?? 1) : (s.aimAssistMouse ? 0.5 : 0));
+    const as = this._assistTarget(s.aimAssistMouse ? 0.5 : 0);
     // ---- look
-    const inv = s.invertY ? -1 : 1;
     const friction = as ? lerp(1, 0.58, as.closeness * as.strength) : 1;
     let lookActive = false;
-    // while the map diorama is up the mouse / right stick steer the map cursor, not your camera
-    const mapUp = (G.rig?.mapK ?? 0) > 0.05 || inp.down('Tab') || inp.down('KeyM') || inp.padButton(8);
+    // while the map diorama is up the mouse steers the map cursor
+    const mapUp = (G.rig?.mapK ?? 0) > 0.05 || inp.down('Tab') || inp.down('KeyM');
     const mdx = mapUp ? 0 : inp.mouse.dx, mdy = mapUp ? 0 : inp.mouse.dy;
     if (mdx || mdy) {
       const sens = 0.0021 * (s.sensitivity ?? 1) * (s.aimAssistMouse ? friction : 1);
       rig.yaw -= mdx * sens;
-      rig.pitch -= mdy * sens * inv;
+      rig.pitch -= mdy * sens;
       lookActive = true;
-    }
-    if (inp.pad && !mapUp) {
-      inp.padStick(2, 3, _stick, 0.11, 0.96);
-      const ps = s.padSensitivity ?? 1;
-      // edge boost: holding the stick at the rim speeds yaw up (quick 180s) after a short delay
-      if (_stick.mag > 0.93) this.edgeT = Math.min(0.5, this.edgeT + dt); else this.edgeT = Math.max(0, this.edgeT - dt * 3);
-      const boost = 1 + 0.55 * clamp((this.edgeT - 0.16) / 0.3, 0, 1);
-      const c = _stick.mag > 0 ? lookCurve(_stick.mag) / _stick.mag : 0;
-      // tiny low-pass on the stick removes sensor noise without adding felt latency (~16 ms)
-      const k = 1 - Math.exp(-60 * dt);
-      this.padLook.x += (_stick.x * c - this.padLook.x) * k; this.padLook.y += (_stick.y * c - this.padLook.y) * k;
-      if (_stick.mag > 0) lookActive = true;
-      rig.yaw -= this.padLook.x * 3.6 * ps * boost * friction * dt;
-      rig.pitch -= this.padLook.y * 2.4 * ps * friction * dt * inv;
     }
     // ---- move (camera relative)
     let mx = 0, mz = 0;
@@ -76,7 +52,6 @@ export class PlayerController {
     if (inp.down('KeyS') || inp.down('ArrowDown')) mz -= 1;
     if (inp.down('KeyA') || inp.down('ArrowLeft')) mx -= 1;
     if (inp.down('KeyD') || inp.down('ArrowRight')) mx += 1;
-    if (inp.pad) { inp.padStick(0, 1, _stick, 0.14, 0.95); mx += _stick.x; mz -= _stick.y; }
     const ml = Math.hypot(mx, mz);
     if (ml > 1) { mx /= ml; mz /= ml; }
     // tracking assist: carry a share of the target's angular motion while the player is engaging (look or move input)
@@ -92,22 +67,22 @@ export class PlayerController {
     // forward = (sy, 0, cy); right = (-cy, 0, sy)
     it.move.set(sy * mz - cy * mx, 0, cy * mz + sy * mx);
 
-    it.jump = inp.down('Space') || inp.padButton(0);
-    it.squid = inp.down('ShiftLeft') || inp.down('ShiftRight') || inp.padValue(6) > 0.3;
-    it.fire = inp.mouse.left || inp.padValue(7) > 0.3;
-    it.sub = inp.mouse.right || inp.down('KeyE') || inp.padButton(5);
-    it.special = inp.down('KeyF') || inp.down('KeyQ') || inp.padButton(3) || inp.padButton(11);
-    this.mapHeld = inp.down('Tab') || inp.down('KeyM') || inp.padButton(8);
+    it.jump = inp.down('Space');
+    it.squid = inp.down('ShiftLeft') || inp.down('ShiftRight');
+    it.fire = inp.mouse.left;
+    it.sub = inp.mouse.right || inp.down('KeyE');
+    it.special = inp.down('KeyF') || inp.down('KeyQ');
+    this.mapHeld = inp.down('Tab') || inp.down('KeyM');
     // the TAB map is a targeting UI (clicking a teammate beacon super jumps) — never fire or throw through it
     if (this.mapHeld) { it.fire = false; it.sub = false; }
-    // super jump: while the map is open, 1-3 (or d-pad left/up/right) jumps to that teammate, 4 / d-pad down to spawn
+    // super jump: while the map is open, 1-3 jumps to a teammate, 4 to spawn
     if (this.mapHeld && a.canSuperJump()) {
       const allies = G.actors.filter((o) => o.team === a.team && o !== a);
       const pick = (i) => { const o = allies[i]; if (o && o.alive && !o.superJumpState) a.superJump(o); };
-      if (inp.wasPressed('Digit1') || inp.padPressed.has(14)) pick(0);
-      if (inp.wasPressed('Digit2') || inp.padPressed.has(12)) pick(1);
-      if (inp.wasPressed('Digit3') || inp.padPressed.has(15)) pick(2);
-      if (inp.wasPressed('Digit4') || inp.padPressed.has(13)) { const p = G.level.spawnPads[a.team]; a.superJump(p.clone()); }
+      if (inp.wasPressed('Digit1')) pick(0);
+      if (inp.wasPressed('Digit2')) pick(1);
+      if (inp.wasPressed('Digit3')) pick(2);
+      if (inp.wasPressed('Digit4')) { const p = G.level.spawnPads[a.team]; a.superJump(p.clone()); }
     }
 
     // ---- aim point from the camera centre ray
