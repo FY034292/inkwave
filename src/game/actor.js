@@ -844,7 +844,9 @@ export class Actor {
     ch.root.position.y += this.smoothY;
     ch.root.rotation.y = this.yaw;
     ch.setHurt(Math.max(this.hurtFlash, 1 - this.hp / PLAYER.hp) * (this.hp < PLAYER.hp ? 1 : 0), G.teamColors[this.enemyTeam]);
-    ch.update(dt, a);
+    // slow frames split the sim into substeps (main.js); the pose only needs solving once per rendered frame
+    this._animDt = (this._animDt || 0) + dt;
+    if (G.animStep !== false) { ch.update(this._animDt, a); this._animDt = 0; }
     this._events(a);
     // swim wake
     if (a.form === 'swim' && hs > 2 && G.fx) {

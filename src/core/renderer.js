@@ -1,4 +1,5 @@
-// Renderer + post stack (MSAA HDR target → optional GTAO → bloom → grade/vignette → output).
+// Renderer + post stack (MSAA HDR target → optional GTAO → bloom → grade/vignette → output; grade doubles as the
+// output pass whenever the screen-FX pass is idle).
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -51,6 +52,9 @@ const GradeShader = {
       c.rgb *= 1.0 - uHurt * 0.25 * smoothstep(0.4, 1.2, r);
       c.rgb += uFlash;
       gl_FragColor = c;
+      // no-ops while grading into a render target; when grade is the last pass they do the OutputPass work
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
     }`,
 };
 
@@ -121,7 +125,8 @@ export class Renderer {
     comp.addPass(this.grade);
     // optional screen-FX pass (src/fx/screenfx.js) — runs in HDR linear space before tone mapping/output
     if (this.extraPass) comp.addPass(this.extraPass);
-    comp.addPass(new OutputPass());
+    this.outputPass = new OutputPass();
+    comp.addPass(this.outputPass);
     r.shadowMap.enabled = this.settings.shadows !== false;
     this._w = w; this._h = h;
     this.grade.uniforms.uAspect.value = w / h;
@@ -168,6 +173,16 @@ export class Renderer {
     if (this.camera) { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
   }
 
+  // Compile every post pass once at boot, including the ones that normally sit idle (screen-FX, the separate output
+  // pass it needs), so the first hit / special in a match never stalls on a shader compile.
+  warmPasses() {
+    if (!this.composer) return;
+    const extra = this.extraPass, wasOn = extra ? extra.enabled : false;
+    if (extra) extra.enabled = true;
+    this.outputPass.enabled = true;
+    try { this.composer.render(); } finally { if (extra) extra.enabled = wasOn; }
+  }
+
   render() {
     this.resize();
     // colour grade recommended by the environment theme (day / dusk)
@@ -179,6 +194,9 @@ export class Renderer {
       if (gr.uShadowTint) u.uShadowTint.value.set(...gr.uShadowTint);
       if (gr.uHighTint) u.uHighTint.value.set(...gr.uHighTint);
     }
+    // With the screen-FX pass idle, grade renders straight to the screen with tone mapping + sRGB folded in:
+    // one full-screen HDR pass fewer per frame (fill rate / bandwidth is what mobile GPUs run out of first).
+    this.outputPass.enabled = !!(this.extraPass && this.extraPass.enabled);
     this.composer.render();
   }
 }

@@ -235,7 +235,8 @@ export const DEFAULT_SETTINGS = {
 // Quality presets consumed by the renderer + fx.
 export const QUALITY = {
   // pixelRatio = cap on devicePixelRatio (Retina screens render at up to this density)
-  low:    { pixelRatio: 1.0, shadowSize: 1024, msaa: 0, bloom: false, ao: false, paintAtlas: 2048, particles: 0.4 },
+  // charShadowDist = only kids within this many metres of the camera cast shadows (0 / unset = all of them)
+  low:    { pixelRatio: 1.0, shadowSize: 1024, msaa: 0, bloom: false, ao: false, paintAtlas: 2048, particles: 0.4, charShadowDist: 16 },
   medium: { pixelRatio: 1.0,  shadowSize: 2048, msaa: 2, bloom: true,  ao: false, paintAtlas: 2048, particles: 0.7 },
   high:   { pixelRatio: 1.5,  shadowSize: 4096, msaa: 4, bloom: true,  ao: true,  paintAtlas: 4096, particles: 1.0 },
   ultra:  { pixelRatio: 2.0,  shadowSize: 4096, msaa: 4, bloom: true,  ao: true,  paintAtlas: 4096, particles: 1.0 },
