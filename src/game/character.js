@@ -15,7 +15,7 @@
 //   application   → kid squash/stretch → pelvis reach solve → torso FK → stabilised head look → two-bone IK legs/arms
 //                   → face → hair spring chains → tank slosh → weapon extras
 import * as THREE from 'three';
-import { PLAYER } from '../config.js';
+import { PLAYER, QUALITY } from '../config.js';
 import { G } from '../core/ctx.js';
 import {
   BONE_NAMES, BONE_PARENT, BONE_INDEX, HAIR_MAX, HAIR_SEGS, REST,
@@ -820,6 +820,27 @@ export class Character {
     } else { this.feetValid = false; this.headInit = false; }
     this._updateSquid(dt, s);
     this._updateMaterials(dt, s);
+    this._shadowLOD(dt);
+  }
+
+  // Quality presets with charShadowDist only let kids near the camera cast into the shadow map: a kid is ~35k
+  // skinned triangles per shadow pass, while far away its shadow is a few texels on screen. The local player and
+  // lobby / showcase kids always cast. Hysteresis keeps a kid at the edge from flickering in and out.
+  _shadowLOD(dt) {
+    const d = QUALITY[G.settings?.quality]?.charShadowDist || 0;
+    let cast = true;
+    if (d > 0 && this.inWorld && !this.isLocal && G.camera) {
+      const r = this._castShadow === false ? d * 0.9 : d * 1.1;
+      cast = G.camera.position.distanceToSquared(this.root.position) < r * r;
+    }
+    this._shadowT = (this._shadowT || 0) - dt;
+    if (cast === this._castShadow && (cast || this._shadowT > 0)) return;
+    this._castShadow = cast; this._shadowT = 1;   // re-applied every second while off: catches weapon/gear rebuilds
+    this.root.traverse((o) => {
+      if (!o.isMesh) return;
+      if (o.userData.castShadow0 === undefined) o.userData.castShadow0 = o.castShadow;
+      o.castShadow = cast && o.userData.castShadow0;
+    });
   }
 
   // Root motion → world velocity/acceleration (+ kid-space versions), turn rate, ground distance while airborne.

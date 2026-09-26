@@ -145,6 +145,7 @@ class Game {
     this._warmup();
     // compile in parallel (KHR_parallel_shader_compile) so the loading screen keeps animating instead of freezing
     try { await G.renderer.compileAsync(scene, camera); } catch { G.renderer.compile(scene, camera); }
+    this.R.warmPasses();
     await progress(0.93, '準備中…');
     for (let i = 0; i < 3; i++) { this._frame(1 / 60); await nextFrame(); }
     await progress(1, '準備完了！');
@@ -691,7 +692,9 @@ class Game {
     if (m) {
       m.updateController(dt);
       const sub = dt > 1 / 35 ? 2 : 1; // keep collision substeps for genuinely slow frames
-      for (let i = 0; i < sub; i++) m.update(dt / sub);
+      // character animation runs once per rendered frame (on the last substep, with the frame's full dt)
+      for (let i = 0; i < sub; i++) { G.animStep = i === sub - 1; m.update(dt / sub); }
+      G.animStep = true;
       if (!m.paused) G.projectiles.update(dt);
       if (m.attract) this._updateAttract(dt);
       else if (m.state === 'playing' && m.local?.alive && this.rig.mode !== 'follow' && this.rig.mode !== 'path') this.rig.follow(m.local, true);
