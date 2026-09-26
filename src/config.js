@@ -220,7 +220,7 @@ export const DEFAULT_SETTINGS = {
   sensitivity: 1.0,         // mouse multiplier 0.2..3
   fov: 82,                  // horizontal FOV at 16:9, 65..100
   quality: 'low',
-  shadows: true,
+  shadows: false,
   bloom: false,
   cameraShake: 1.0,         // 0..1
   showFps: false,

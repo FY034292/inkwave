@@ -81,7 +81,6 @@ const SETTINGS_TABS = [
   ] },
   { id: 'video', label: '映像', icon: 'monitor', rows: [
     { key: 'fov', label: '視野角', type: 'slider', min: 65, max: 100, step: 1, fmt: (v) => Math.round(v) + '°', help: '広くすると周囲が見やすくなる。' },
-    { key: 'shadows', label: '影', type: 'toggle', help: '太陽の影を表示する。重い場合はオフにできる。' },
     { key: 'showFps', label: 'フレーム数を表示', type: 'toggle', help: '対戦中に毎秒の描画回数を表示する。' },
   ] },
   { id: 'audio', label: '音声', icon: 'speaker', rows: [
