@@ -164,6 +164,20 @@ export class DioramaOverlay {
     if (moved) this._last.mv = 1;
   }
 
+  // touch: the jumpable pin under a tap (badges float ~34 px above the pin's ground point), or -1
+  pinAt(x, y) {
+    if (!this.on || this.k < 0.7) return -1;
+    let best = -1, bd = 64;
+    for (let i = 0; i < 4; i++) {
+      const p = this.pins[i];
+      if (!p.vis) continue;
+      const d = Math.min(Math.hypot(p.x - x, p.y - 34 - y), Math.hypot(p.x - x, p.y - y));
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+  }
+  jump(i) { this._jump(i, G.match?.local); }
+
   _jump(i, me) {
     const p = this.pins[i];
     if (!me || !me.canSuperJump || !me.canSuperJump()) { G.audio?.play?.('ui_error', { volume: 0.5 }); return; }
@@ -183,6 +197,7 @@ export class DioramaOverlay {
     const m = G.game?.mapDef;
     this.title.textContent = (m?.name || 'Stage').toUpperCase();
     this.when.textContent = G.game?.time === 'dusk' ? 'DUSK' : 'DAY';
+    if (document.documentElement.classList.contains('is-touch')) { this.foot.innerHTML = '<span>ピンをタップしてスーパージャンプ</span> <em>·</em> <span>ほかの場所をタップして閉じる</span>'; return; }
     this.foot.innerHTML = `${keycap('1')}${keycap('2')}${keycap('3')} <span>仲間へスーパージャンプ</span> ${keycap('4')} <span>スタート地点</span> <em>·</em> <span>ピンをクリックして選択</span> <em>·</em> <span>放して閉じる</span> ${keycap('TAB')}`;
   }
 }

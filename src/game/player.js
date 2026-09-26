@@ -33,17 +33,28 @@ export class PlayerController {
       return;
     }
     // ---- aim assist target (computed from last frame's camera; cheap)
-    const as = this._assistTarget(s.aimAssistMouse ? 0.5 : 0);
+    const tc = inp.touch;
+    const touch = !!tc?.active;
+    const assistOn = touch ? s.aimAssistTouch !== false : s.aimAssistMouse;
+    const as = this._assistTarget(assistOn ? 0.5 : 0);
     // ---- look
     const friction = as ? lerp(1, 0.58, as.closeness * as.strength) : 1;
     let lookActive = false;
     // while the map diorama is up the mouse steers the map cursor
-    const mapUp = (G.rig?.mapK ?? 0) > 0.05 || inp.down('Tab') || inp.down('KeyM');
+    const mapUp = (G.rig?.mapK ?? 0) > 0.05 || inp.down('Tab') || inp.down('KeyM') || !!tc?.map;
     const mdx = mapUp ? 0 : inp.mouse.dx, mdy = mapUp ? 0 : inp.mouse.dy;
     if (mdx || mdy) {
       const sens = 0.0021 * (s.sensitivity ?? 1) * (s.aimAssistMouse ? friction : 1);
       rig.yaw -= mdx * sens;
       rig.pitch -= mdy * sens;
+      lookActive = true;
+    }
+    // touch look: CSS px of finger drag (a thumb swipe across half a phone screen ≈ a half turn)
+    const tdx = mapUp || !tc ? 0 : tc.lookDx, tdy = mapUp || !tc ? 0 : tc.lookDy;
+    if (tdx || tdy) {
+      const sens = 0.0068 * (s.touchSensitivity ?? 1) * (assistOn ? friction : 1);
+      rig.yaw -= tdx * sens;
+      rig.pitch -= tdy * sens * 0.8;
       lookActive = true;
     }
     // ---- move (camera relative)
@@ -52,6 +63,7 @@ export class PlayerController {
     if (inp.down('KeyS') || inp.down('ArrowDown')) mz -= 1;
     if (inp.down('KeyA') || inp.down('ArrowLeft')) mx -= 1;
     if (inp.down('KeyD') || inp.down('ArrowRight')) mx += 1;
+    if (tc && (tc.moveX || tc.moveY)) { mx += tc.moveX; mz += tc.moveY; }
     const ml = Math.hypot(mx, mz);
     if (ml > 1) { mx /= ml; mz /= ml; }
     // tracking assist: carry a share of the target's angular motion while the player is engaging (look or move input)
@@ -67,12 +79,12 @@ export class PlayerController {
     // forward = (sy, 0, cy); right = (-cy, 0, sy)
     it.move.set(sy * mz - cy * mx, 0, cy * mz + sy * mx);
 
-    it.jump = inp.down('Space');
-    it.squid = inp.down('ShiftLeft') || inp.down('ShiftRight');
-    it.fire = inp.mouse.left;
-    it.sub = inp.mouse.right || inp.down('KeyE');
-    it.special = inp.down('KeyF') || inp.down('KeyQ');
-    this.mapHeld = inp.down('Tab') || inp.down('KeyM');
+    it.jump = inp.down('Space') || !!tc?.jump;
+    it.squid = inp.down('ShiftLeft') || inp.down('ShiftRight') || !!tc?.squid;
+    it.fire = inp.mouse.left || !!tc?.fire;
+    it.sub = inp.mouse.right || inp.down('KeyE') || !!tc?.sub;
+    it.special = inp.down('KeyF') || inp.down('KeyQ') || !!tc?.special;
+    this.mapHeld = inp.down('Tab') || inp.down('KeyM') || !!tc?.map;
     // the TAB map is a targeting UI (clicking a teammate beacon super jumps) — never fire or throw through it
     if (this.mapHeld) { it.fire = false; it.sub = false; }
     // super jump: while the map is open, 1-3 jumps to a teammate, 4 to spawn

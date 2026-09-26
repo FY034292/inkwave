@@ -75,8 +75,10 @@ const MENU_DESC = {
 const pctFmt = (v) => Math.round(v * 100) + '%';
 const SETTINGS_TABS = [
   { id: 'controls', label: '操作', icon: 'keyboard', rows: [
-    { key: 'sensitivity', label: 'マウス感度', type: 'slider', min: 0.2, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×', help: 'マウスを動かしたときの視点の回りやすさ。' },
-    { key: 'aimAssistMouse', label: 'エイム補助（マウス）', type: 'toggle', help: 'マウス操作にも弱めのエイム補助を適用する。' },
+    { key: 'touchSensitivity', only: 'touch', label: 'タッチ感度', type: 'slider', min: 0.3, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×', help: '画面の右側をドラッグしたときの視点の回りやすさ。' },
+    { key: 'aimAssistTouch', only: 'touch', label: 'エイム補助（タッチ）', type: 'toggle', help: '照準の近くにいる相手へ視点が少し吸い付く。' },
+    { key: 'sensitivity', only: 'mouse', label: 'マウス感度', type: 'slider', min: 0.2, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×', help: 'マウスを動かしたときの視点の回りやすさ。' },
+    { key: 'aimAssistMouse', only: 'mouse', label: 'エイム補助（マウス）', type: 'toggle', help: 'マウス操作にも弱めのエイム補助を適用する。' },
     { key: '_howto', label: '操作一覧', type: 'link', help: 'キーボードとマウスの操作一覧。' },
   ] },
   { id: 'video', label: '映像', icon: 'monitor', rows: [
@@ -679,8 +681,8 @@ export class Menus {
   // ================================================================ SCREEN: title
   _scr_title() {
     const press = h('div', { class: 'iw-title__press iw-in iw-in--up' },
-      h('span', { class: 'iw-title__presstext' }, 'キーを押してスタート'),
-      h('span', { class: 'iw-title__presssub' }, 'またはクリック'));
+      h('span', { class: 'iw-title__presstext' }, document.documentElement.classList.contains('is-touch') ? 'タップしてスタート' : 'キーを押してスタート'),
+      document.documentElement.classList.contains('is-touch') ? null : h('span', { class: 'iw-title__presssub' }, 'またはクリック'));
     const el = h('div', { class: 'iw-screen iw-title', onclick: () => this._titleGo() },
       h('div', { class: 'iw-title__scrim' }),
       h('div', { class: 'iw-title__logo iw-in iw-in--logo' }, h('i', { class: 'iw-title__shock' }), h('div', { class: 'iw-title__logoin', html: logoMarkup(GAME_TITLE, GAME_SUBTITLE, 'xl') })),
@@ -1725,7 +1727,8 @@ export class Menus {
       controls.clear();
       const s = this._settings();
       const tab = SETTINGS_TABS[tabIdx];
-      tab.rows.forEach((r, i) => {
+      const touch = document.documentElement.classList.contains('is-touch');
+      tab.rows.filter((r) => !r.only || r.only === (touch ? 'touch' : 'mouse')).forEach((r, i) => {
         let ctrl;
         if (r.type === 'link') ctrl = { el: h('span', { class: 'iw-row__link' }, '見る', h('i', { html: GLYPHS.next })), accept: () => { this._sfx('ui_click'); this._go('howto'); } };
         else if (r.type === 'slider') ctrl = this._slider(r, s[r.key]);
@@ -1851,6 +1854,20 @@ export class Menus {
       ['マップ', '長押し', K('TAB')],
       ['一時停止', null, K('ESC')],
     ];
+    // phones: the on-screen controls instead of keys (plain words — there is nothing to press but the buttons)
+    if (document.documentElement.classList.contains('is-touch')) {
+      const T = (t) => `<span class="iw-ctl__touch">${t}</span>`;
+      rows.splice(0, rows.length,
+        ['移動', null, T('左側をドラッグ')],
+        ['狙う', null, T('右側をドラッグ')],
+        ['撃つ', '長押し', T('ブキボタン')],
+        ['イカ状態で泳ぐ', '長押し / タップで固定', T('イカボタン')],
+        ['ジャンプ', null, T('ジャンプボタン')],
+        ['ボムを狙い、放して投げる', '長押し', T('ボムボタン')],
+        ['スペシャル', null, T('光ったらタップ')],
+        ['マップ', null, T('ミニマップをタップ')],
+        ['一時停止', null, T('左上のボタン')]);
+    }
     const list = compact ? rows.filter((r) => ['移動', '撃つ', 'イカ状態で泳ぐ', 'ジャンプ', 'ボムを狙い、放して投げる', 'スペシャル'].includes(r[0])) : rows;
     return h('div', { class: 'iw-ctl' + (compact ? ' iw-ctl--compact' : '') }, list.map(([act, hold, kb]) =>
       h('div', { class: 'iw-ctl__row' },
