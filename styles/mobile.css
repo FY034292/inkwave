@@ -1,0 +1,100 @@
+/* =====================================================================================
+   INKWAVE — phone layout (html.is-touch). The desktop screens are laid out on a 16:9 frame measured in --u; on a
+   phone that unit is ~7 px, so text and buttons end up tiny. Here the unit grows (by height, capped at the desktop
+   size so tablets keep the desktop layout) and every screen is re-flowed into a compact header + content area that
+   fits a landscape phone: two columns at most, long lists scroll, the main action is always on screen.
+   ===================================================================================== */
+html.is-touch .iw-ui, html.is-touch .iw-hud, html.is-touch .iw-hud-over { --u: min(1.3vw, 2.3vh, 16px); }
+html.is-touch .iw-ui {
+  --ml: calc(14px + var(--sal)); --mr: calc(14px + var(--sar));
+  --mt: calc(58px + var(--sat)); --mb: calc(10px + var(--sab));
+  --fs-xs: 11px; --fs-s: 12.5px; --fs-m: 14px; --fs-l: 17px;
+}
+/* scrollable columns: real finger scrolling (the root blocks browser gestures) */
+html.is-touch .iw-ss__left, html.is-touch .iw-loadout__body, html.is-touch .iw-lgrids, html.is-touch .iw-settings__panel .iw-rows, html.is-touch .iw-howto__rules, html.is-touch .iw-howto__ctl, html.is-touch .iw-pmatch, html.is-touch .iw-res__body { pointer-events: auto; overflow-y: auto; overflow-x: hidden; touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+html.is-touch .iw-ui *::-webkit-scrollbar { display: none; }
+/* hover-only chrome and keyboard hints have no place on a phone */
+html.is-touch .iw-main__desc, html.is-touch .iw-tabs__hint, html.is-touch .iw-lbtn__key, html.is-touch .iw-ss__timehead .iw-hint, html.is-touch .iw-lspin .iw-kbm { display: none !important; }
+
+/* ---- shared header: back button + title on one short line */
+html.is-touch .iw-head { left: var(--ml); top: calc(8px + var(--sat)); gap: 12px; }
+html.is-touch .iw-backbtn { width: 44px; height: 44px; }
+html.is-touch .iw-head__title { font-size: 26px; }
+html.is-touch .iw-head__blob { width: 1.9em; }
+html.is-touch .iw-head__sub { display: none; }
+
+/* ---- title */
+html.is-touch .iw-title__presstext { font-size: 26px; }
+
+/* ---- main: logo + big buttons on the left, profile / kit on the right */
+html.is-touch .iw-main__logo { left: var(--ml); top: calc(8px + var(--sat)); transform-origin: left top; scale: .8; }
+html.is-touch .iw-main__menu { left: var(--ml); top: calc(64px + var(--sat)); bottom: var(--mb); transform: none; width: min(46vw, 360px); gap: 8px; justify-content: center; }
+html.is-touch .iw-main__menu .iw-btn--xl { height: 76px; font-size: 30px; margin-bottom: 2px; }
+html.is-touch .iw-main__menu .iw-btn--menu:not(.iw-btn--xl) { height: 48px; font-size: 18px; }
+html.is-touch .iw-main__side { right: var(--mr); top: calc(10px + var(--sat)); bottom: var(--mb); width: min(40vw, 340px); justify-content: flex-start; gap: 10px; }
+html.is-touch .iw-corner--bl { display: none; }
+
+/* ---- stage select: stages + match options scroll on the left, preview + START on the right */
+html.is-touch .iw-ss__left { left: var(--ml); top: var(--mt); bottom: var(--mb); width: 36vw; gap: 8px; padding-right: 10px; }
+html.is-touch .iw-ss__list { max-height: none; margin-right: 0; padding: 4px 6px 4px 0; gap: 10px; }
+html.is-touch .iw-ticket { height: 64px; }
+html.is-touch .iw-ss__hero { left: calc(36vw + var(--ml) + 16px); right: var(--mr); top: var(--mt); height: auto; bottom: calc(var(--mb) + 66px); }
+html.is-touch .iw-ss__splat { display: none; }
+html.is-touch .iw-ss__name { font-size: 22px; }
+html.is-touch .iw-ss__caption { right: 40%; }
+html.is-touch .iw-ss__layout { width: 34%; }
+html.is-touch .iw-ss__time { transform-origin: right top; scale: .85; }
+html.is-touch .iw-ss__foot { left: calc(36vw + var(--ml) + 16px); right: var(--mr); top: auto; bottom: var(--mb); gap: 8px; }
+html.is-touch .iw-ss__foot .iw-wchip { height: 56px; }
+html.is-touch .iw-ss__foot .iw-wchip:nth-child(2) { display: none; }
+html.is-touch .iw-ss__foot .iw-btn--start { height: 56px; width: auto; flex: 1 1 0; font-size: 24px; }
+html.is-touch .iw-ss__foot .iw-btn--start .iw-btn__sub { display: none; }
+html.is-touch .iw-ss__drips { display: none; }
+
+/* ---- weapons: grid + details scroll on the left, the kid in the locker light stays on the right */
+html.is-touch .iw-loadout__body { left: var(--ml); top: var(--mt); bottom: var(--mb); width: 56vw; gap: 10px; padding-right: 6px; }
+html.is-touch .iw-wgrid { --cols: 4; }
+html.is-touch .iw-wcard { min-height: 76px; }
+html.is-touch .iw-wd { grid-template-columns: 1fr; }
+html.is-touch .iw-loadout__look { top: calc(8px + var(--sat)); right: var(--mr); width: min(34vw, 280px); }
+
+/* ---- locker */
+html.is-touch .iw-locker__body { left: var(--ml); top: var(--mt); bottom: var(--mb); width: 56vw; gap: 8px; }
+html.is-touch .iw-locker__body .iw-lpanel { flex: 1 1 auto; min-height: 0; }
+html.is-touch .iw-lgrids { height: auto; flex: 1 1 auto; min-height: 0; }
+html.is-touch .iw-ltile--bust { min-width: 0; }
+html.is-touch .iw-ltag { top: calc(8px + var(--sat)); right: var(--mr); width: min(38vw, 300px); }
+html.is-touch .iw-lsheet { display: none; }
+html.is-touch .iw-lspin { left: 60vw; bottom: var(--mb); }
+html.is-touch .iw-tab { min-height: 36px; }
+
+/* ---- settings: one wide scrolling panel, the side preview is a desktop nicety */
+html.is-touch .iw-settings__panel { left: var(--ml); right: var(--mr); width: auto; top: var(--mt); bottom: var(--mb); display: flex; flex-direction: column; padding: 10px 12px; }
+html.is-touch .iw-settings__panel .iw-rows { flex: 1 1 auto; min-height: 0; }
+html.is-touch .iw-prev { display: none; }
+html.is-touch .iw-row { min-height: 50px; }
+html.is-touch .iw-settings__foot { margin-top: 6px; padding-top: 8px; }
+
+/* ---- how to play: rules and controls side by side, both scroll */
+html.is-touch .iw-howto__body { left: var(--ml); right: var(--mr); top: var(--mt); bottom: var(--mb); grid-template-columns: 1.15fr 1fr; gap: 14px; align-items: stretch; }
+html.is-touch .iw-howto__rules { grid-template-columns: 1fr 1fr; gap: 10px; align-content: start; }
+html.is-touch .iw-howto__ctl { overflow-y: auto; }
+
+/* ---- pause: buttons left, match card right (scrolls; the key reference is dropped) */
+html.is-touch .iw-pause__col { left: var(--ml); top: calc(10px + var(--sat)); bottom: var(--mb); transform: none; width: min(34vw, 280px); gap: 12px; justify-content: center; }
+html.is-touch .iw-pause__title { font-size: 34px; padding-left: 14px; }
+html.is-touch .iw-pause__menu { gap: 8px; }
+html.is-touch .iw-pause__menu .iw-btn--menu { height: 48px; font-size: 18px; }
+html.is-touch .iw-pmatch { right: var(--mr); top: calc(10px + var(--sat)); bottom: var(--mb); transform: none; width: auto; left: calc(min(34vw, 280px) + var(--ml) + 18px); }
+html.is-touch .iw-pmatch .iw-pref, html.is-touch .iw-pause__ref { display: none; }
+
+/* ---- results: header shrinks, the body takes the rest and scrolls */
+html.is-touch .iw-res__head { left: var(--ml); top: calc(8px + var(--sat)); }
+html.is-touch .iw-res__title { font-size: 40px; }
+html.is-touch .iw-res__splat { width: 150px; }
+html.is-touch .iw-results .iw-res__body, html.is-touch .iw-res__body { left: var(--ml); right: var(--mr); top: 34%; bottom: var(--mb); }
+html.is-touch .iw-res__medals { transform-origin: right top; scale: .8; }
+
+/* ---- bigger hit areas everywhere */
+html.is-touch .iw-seg__opt { min-height: 36px; }
+html.is-touch .iw-toggle { min-height: 34px; }
