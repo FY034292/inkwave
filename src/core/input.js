@@ -1,7 +1,15 @@
-// Keyboard and mouse (pointer lock) input for each frame.
+// Keyboard and mouse (pointer lock) input for each frame. Touch controls (ui/touch.js) write into Input.touch.
 
 // keys whose browser default (focus moves, page scroll) must never fire while the game has the mouse
 const GAME_KEYS = new Set(['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Slash', 'Quote']);
+
+// phones / tablets: a coarse primary pointer (or ?touch to try the touch controls on a desktop)
+export const isTouchDevice = () => {
+  try {
+    if (new URLSearchParams(location.search).has('touch')) return true;
+    return matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
+  } catch { return false; }
+};
 
 export class Input {
   constructor(canvas) {
@@ -11,6 +19,8 @@ export class Input {
     this.mouse = { dx: 0, dy: 0, left: false, right: false, leftPressed: false, rightPressed: false };
     this.locked = false;
     this.enabled = true;
+    // move stick (-1..1, y = forward), look drag in CSS px this frame, held buttons
+    this.touch = { active: isTouchDevice(), moveX: 0, moveY: 0, lookDx: 0, lookDy: 0, fire: false, squid: false, jump: false, sub: false, special: false, map: false };
     this.onKey = null;              // (e) => bool consumed  (menus)
     window.addEventListener('keydown', (e) => {
       // the menus call preventDefault themselves when needed (text fields must still receive keystrokes)
@@ -67,5 +77,6 @@ export class Input {
     this.pressed.clear();
     this.mouse.dx = 0; this.mouse.dy = 0;
     this.mouse.leftPressed = false; this.mouse.rightPressed = false;
+    this.touch.lookDx = 0; this.touch.lookDy = 0;
   }
 }

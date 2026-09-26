@@ -358,7 +358,7 @@ export class HUD {
           by ? h('div', { class: 'iw-spl__name iw-display' }, String(by)) : null,
           killer && killer.weaponId ? h('div', { class: 'iw-spl__wn' }, (WEAPONS[killer.weaponId] || {}).name || '') : null),
         ring),
-      h('div', { class: 'iw-spl__hint', html: richText('[TAB]長押しでスーパージャンプ先を選ぶ') }));
+      h('div', { class: 'iw-spl__hint', html: richText(document.documentElement.classList.contains('is-touch') ? 'マップボタンでスーパージャンプ先を選ぶ' : '[TAB]長押しでスーパージャンプ先を選ぶ') }));
     colorVars(el, 'by', toHex(byColor, '#2f5bff'));
     this.splatLayer.appendChild(el);
     const st = { el, tint, end: this._fxTime + Math.max(0, respawn), num, last: Math.ceil(respawn) };

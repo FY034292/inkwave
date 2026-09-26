@@ -85,6 +85,28 @@ class Game {
     this.R.renderer.domElement.addEventListener('mousedown', () => {
       if (this._relock && G.mode === 'match' && this.match && !this.match.paused && !this.menus?.current) { this._relock = false; this.input.requestLock(); }
     });
+    // touch: the first tap starts audio (there is no key press on a phone) and switches the round to the touch controls
+    // (audio + full screen wait for pointerup: a touch's pointerdown is not a user activation)
+    addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') this._setTouchMode(true);
+      else if (e.pointerType === 'mouse') { this._unlockAudio(); if (this.input.touch.active && !params.has('touch')) this._setTouchMode(false); }
+    }, { capture: true, passive: true });
+    addEventListener('pointerup', (e) => {
+      if (e.pointerType === 'mouse') return;
+      this._unlockAudio();
+      this._setTouchMode(true);
+    }, { capture: true, passive: true });
+    this._setTouchMode(this.input.touch.active);
+    try {
+      const { TouchControls } = await import('./ui/touch.js');
+      this.touch = new TouchControls(this.input, {
+        pause: () => this.pause(),
+        mapPinAt: (x, y) => this.diorama?.pinAt?.(x, y) ?? -1,
+        mapJump: (i) => this.diorama?.jump?.(i),
+      });
+    } catch (e) { console.error('[inkwave] touch controls', e); this.touch = null; }
+    // a phone app going to the background (home button, call, lock) pauses the round
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { this.touch?.releaseAll(); if (G.mode === 'match' && this.match?.state === 'playing') this.pause(); } });
 
     // modules built by other authors
     const [charMod, fxMod, envMod, audioMod, musicMod] = await Promise.all([
@@ -348,9 +370,29 @@ class Game {
   _playMusic(t) { this._musicTrack = t; try { G.music?.play(t, { fade: 1.2 }); } catch (e) { /* not initialised yet */ } }
 
   // ---------------------------------------------------------------------------------------- input routing
+  // first gesture unlocks audio
+  _unlockAudio() {
+    if (this._audioOn) return;
+    this._audioOn = true; G.audio?.init?.(); this._applyAudioVolumes(); this._playMusic(this.menus?.current === 'title' || !this.menus ? 'title' : 'menu');
+  }
+  _setTouchMode(on) {
+    this.input.touch.active = on;
+    document.documentElement.classList.toggle('is-touch', on);
+    // PWA / phone browser: go full screen and hold landscape where the platform allows it (needs a user gesture)
+    if (on && this._audioOn && !this._fsTried) {
+      this._fsTried = true;
+      const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
+      const el = document.documentElement;
+      const lock = () => { try { screen.orientation?.lock?.('landscape')?.catch?.(() => {}); } catch { /* unsupported */ } };
+      if (!standalone && !document.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).then(lock, () => {});
+      else lock();
+    }
+  }
+
   _onKey(e, repeat) {
-    // first gesture unlocks audio
-    if (!this._audioOn) { this._audioOn = true; G.audio?.init?.(); this._applyAudioVolumes(); this._playMusic(this.menus?.current === 'title' || !this.menus ? 'title' : 'menu'); }
+    this._unlockAudio();
+    // a real keyboard takes over from the touch controls (not the on-screen keyboard typing a name)
+    if (this.input.touch.active && e.code && !/^(INPUT|TEXTAREA)$/.test(e.target?.tagName || '') && !params.has('touch')) this._setTouchMode(false);
     if (G.mode === 'match' && this.match && !this.match.paused && !this.menus?.current) {
       if (e.code === 'Escape' || e.code === 'KeyP') { this.pause(); return true; }
       return false;
@@ -763,6 +805,10 @@ class Game {
     // HUD
     if (m && !m.attract && this.hud && (m.state === 'playing' || m.state === 'intro' || m.state === 'finish')) this._updateHud(dt);
     this.menus?.update?.(dt);
+    if (this.touch) {
+      this.touch.setVisible(!!(this.input.touch.active && m && !m.attract && !m.paused && m.state === 'playing' && !this.menus?.current));
+      this.touch.update(dt);
+    }
     this.input.endFrame();
   }
 
@@ -862,12 +908,13 @@ class Game {
     this._hintT += dt;
     let prompt = null;
     const inkF = a.ink / PLAYER.inkMax;
+    const touch = this.input.touch.active;
     if (m.state === 'playing' && a.alive) {
       if (m.controller?.mapHeld) prompt = null;   // the map diorama carries its own super-jump hints
       else if (a.superJumpState) prompt = null;
-      else if (this._lowInkFlash > 0) { this._lowInkFlash -= dt; prompt = 'インク不足！自分のインクでSHIFTを押して補給'; }
-      else if (a.specialReady() && (this._hints.specialT = (this._hints.specialT || 0) + dt) > 2) prompt = 'スペシャル発動可能！Fを押そう';
-      else if (inkF < 0.25 && a.form !== 'squid') prompt = 'SHIFTでインクに潜って補給';
+      else if (this._lowInkFlash > 0) { this._lowInkFlash -= dt; prompt = touch ? 'インク不足！自分のインクでイカになって補給' : 'インク不足！自分のインクでSHIFTを押して補給'; }
+      else if (a.specialReady() && (this._hints.specialT = (this._hints.specialT || 0) + dt) > 2) prompt = touch ? 'スペシャル発動可能！光っているボタンをタップ' : 'スペシャル発動可能！Fを押そう';
+      else if (inkF < 0.25 && a.form !== 'squid') prompt = touch ? 'イカボタンでインクに潜って補給' : 'SHIFTでインクに潜って補給';
       else if (m.duration - m.time < 8 && !this._hints.shot) prompt = '地面を塗ろう！塗った面積が広い方の勝ち！';
       if (!a.specialReady()) this._hints.specialT = 0;
       if (a.intent.fire) this._hints.shot = true;

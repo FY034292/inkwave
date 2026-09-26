@@ -2,13 +2,21 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>INKWAVE — ナワバリバトル</title>
 <meta name="description" content="4対4のナワバリバトル。地面を塗り、インクに潜って相手チームと勝負しよう。">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4c8 0 14 7 14 16 0 6-2 9-2 13 0 5 6 6 6 12 0 4-3 6-6 6-4 0-5-4-8-4s-2 9-4 9-2-9-4-9-4 4-8 4c-3 0-6-2-6-6 0-6 6-7 6-12 0-4-2-7-2-13C18 11 24 4 32 4z' fill='%23ff8a14'/%3E%3Ccircle cx='26' cy='22' r='4' fill='%23fff'/%3E%3Ccircle cx='38' cy='22' r='4' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="INKWAVE">
+<link rel="apple-touch-icon" href="assets/icons/icon-180.png">
 <link rel="preload" href="assets/fonts/TitanOne-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/Rubik-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles/ui.css">
+<link rel="stylesheet" href="styles/touch.css">
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1020; user-select: none; -webkit-user-select: none; }
   #app { position: fixed; inset: 0; }
@@ -26,7 +34,12 @@
 <div id="ui-root"></div>
 <div id="fade"></div>
 <div id="boot-error"></div>
+<div class="iw-rotate"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="18" y="6" width="28" height="52" rx="6" fill="none" stroke="#fff" stroke-width="4"/><circle cx="32" cy="50" r="2.5" fill="#fff"/></svg>端末を横向きにしてプレイしてください</div>
 <script>
+  // phones: mark touch before the first paint so the loading / title screens already use the touch layout
+  try { if (matchMedia('(pointer: coarse)').matches || /[?&]touch\b/.test(location.search)) document.documentElement.classList.add('is-touch'); } catch (e) { /* old browser */ }
+  // PWA: offline play + instant start (needs https or localhost)
+  if ('serviceWorker' in navigator && !/[?&]nosw\b/.test(location.search)) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // fade in once the loading screen is mounted
   window.addEventListener('DOMContentLoaded', () => setTimeout(() => { const f = document.getElementById('fade'); if (f) { f.style.opacity = '0'; f.style.pointerEvents = 'none'; } }, 60));
 </script>

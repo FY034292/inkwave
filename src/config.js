@@ -230,6 +230,8 @@ export const DEFAULT_SETTINGS = {
   matchLength: 180,
   difficulty: 'normal',
   aimAssistMouse: false,    // optional aim assist for mouse
+  touchSensitivity: 1.0,    // touch look multiplier 0.3..3
+  aimAssistTouch: true,     // aim assist for the touch controls (on by default: thumbs are far less precise)
 };
 
 // Quality presets consumed by the renderer + fx.

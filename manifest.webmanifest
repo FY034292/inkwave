@@ -1,0 +1,20 @@
+{
+  "name": "INKWAVE — ナワバリバトル",
+  "short_name": "INKWAVE",
+  "description": "4対4のナワバリバトル。地面を塗り、インクに潜って相手チームと勝負しよう。",
+  "lang": "ja",
+  "start_url": "./?pwa",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#0d1020",
+  "theme_color": "#0d1020",
+  "categories": ["games"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
