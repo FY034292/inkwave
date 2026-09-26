@@ -47,8 +47,8 @@ class Game {
     // real top-down thumbnails for the stage cards, generated from each layout's geometry
     for (const m of MAPS) { try { m.thumb = layoutThumbSVG(MAP_LAYOUTS[m.layout || m.id], m.theme); } catch (e) { console.warn('thumb', m.id, e); } }
     this.settings = G.settings = loadJSON('inkwave.settings', DEFAULT_SETTINGS);
-    if (this.settings.quality !== 'low' || this.settings.bloom !== false) {
-      this.settings.quality = 'low'; this.settings.bloom = false;
+    if (this.settings.quality !== 'low' || this.settings.bloom !== false || this.settings.shadows !== false) {
+      this.settings.quality = 'low'; this.settings.bloom = false; this.settings.shadows = false;
       saveJSON('inkwave.settings', this.settings);
     }
     // v1.1: fov became horizontal — migrate old vertical values once
@@ -327,6 +327,7 @@ class Game {
     Object.assign(this.settings, partial);
     this.settings.quality = 'low';
     this.settings.bloom = false;
+    this.settings.shadows = false;
     saveJSON('inkwave.settings', this.settings);
     if ('quality' in partial || 'shadows' in partial || 'bloom' in partial) this.R?.applySettings(this.settings);
     if ('master' in partial || 'music' in partial || 'sfx' in partial) this._applyAudioVolumes();
