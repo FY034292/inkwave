@@ -5,9 +5,11 @@ import { randomStyle } from '../game/character-style.js';
 
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
-/** room: the relay's room state · returns [{ id, team, slot, name, weapon, style, owner, bot }] (id = team·size + slot) */
+/** room: the relay's room state · returns [{ id, team, slot, name, weapon, style, owner, bot }] (id = team·size + slot)
+ *  room.config.cpu === false: no CPUs — only the humans play (1 vs 1, 2 vs 1…) */
 export function buildRoster(room) {
   const N = MATCH.teamSize;
+  const cpu = !(room.config && room.config.cpu === false);
   const teams = [[], []];
   for (const m of [...room.members].sort((a, b) => a.id - b.id)) {
     const t = m.team === 1 ? 1 : 0;
@@ -26,7 +28,7 @@ export function buildRoster(room) {
       const id = team * N + slot;
       if (m) {
         roster.push({ id, team, slot, name: m.name, weapon: WEAPONS[m.weapon] ? m.weapon : 'shooter', style: m.style || randomStyle(), owner: m.id, bot: false });
-      } else {
+      } else if (cpu) {
         if (!pool.length) pool.push(...shuffle([...WEAPON_ORDER]));
         roster.push({ id, team, slot, name: names[ni++ % names.length] || `CPU ${id + 1}`, weapon: pool.pop(), style: randomStyle(), owner: room.host, bot: true });
       }

@@ -4,7 +4,7 @@
 //   const code = await net.create();                 // new room → code (then join it)
 //   await net.join(code, { name, weapon, style });   // resolves once the room has welcomed us
 //   net.on('room' | 'start' | 'relay' | 'left' | 'close' | 'error', fn) → unsubscribe
-//   net.set({ team, weapon, name, style }) · net.config({ mapId, time }) · net.start(payload) · net.end()
+//   net.set({ team, weapon, name, style }) · net.config({ mapId, time, cpu }) · net.start(payload) · net.end()
 //   net.relay(string)                                // match traffic, forwarded as-is to everyone else in the room
 //   net.leave()
 // The room state (net.room) mirrors the server: { code, host, phase: 'lobby' | 'match', config, members[] }.
