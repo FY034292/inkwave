@@ -1,16 +1,20 @@
 /* =====================================================================================
-   INKWAVE — "add to home screen" hint (src/ui/installPrompt.js). A small card in the title screen's top-right corner
-   with a bouncing arrow pointing up at the browser's share / ⋮ button (no arrow when Chrome lets us open the install
-   dialog directly). Sits above the menus, below the rotate overlay.
+   INKWAVE — "add to home screen" hint (src/ui/installPrompt.js). A small card with a bouncing arrow pointing at the
+   browser's share / ⋮ button: top-right, or bottom-centre for iPhone Safari in portrait (no arrow when Chrome lets us
+   open the install dialog directly). Sits above the menus and the portrait "rotate your phone" screen.
    ===================================================================================== */
 .iw-a2hs {
-  position: fixed; z-index: 65; pointer-events: none;
+  position: fixed; z-index: 75; pointer-events: none;
   right: calc(6px + env(safe-area-inset-right, 0px)); top: calc(6px + env(safe-area-inset-top, 0px));
   display: flex; align-items: flex-start; gap: 6px;
   font: 500 12.5px/1.45 'Rubik', system-ui, sans-serif; color: #fff;
   opacity: 0; translate: 0 -16px; transition: opacity 260ms ease, translate 260ms ease;
 }
-.iw-a2hs.is-on { opacity: 1; translate: 0 0; }
+.iw-a2hs[data-where="bottom"] {
+  top: auto; right: auto; left: 50%; bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%); flex-direction: column; align-items: center; translate: 0 16px;
+}
+.iw-a2hs.is-on, .iw-a2hs.is-on[data-where] { opacity: 1; translate: 0 0; }
 .iw-a2hs__card {
   pointer-events: auto; position: relative;
   display: flex; align-items: center; gap: 10px;
@@ -39,4 +43,14 @@
 .iw-a2hs__arrow { flex: none; width: 34px; height: 48px; color: #ff8a14; rotate: 180deg; filter: drop-shadow(0 -2px 3px rgba(0, 0, 0, .5)); animation: iw-a2hs-bob 1s ease-in-out infinite; }
 .iw-a2hs__arrow svg { width: 100%; height: 100%; display: block; }
 @keyframes iw-a2hs-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+.iw-a2hs[data-where="bottom"] .iw-a2hs__card { margin-top: 0; width: min(380px, calc(100vw - 24px)); }
+.iw-a2hs[data-where="bottom"] .iw-a2hs__arrow { rotate: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .5)); animation-name: iw-a2hs-bob-down; }
+@keyframes iw-a2hs-bob-down { 0%, 100% { translate: 0 0; } 50% { translate: 0 8px; } }
+/* narrow (portrait) screens: without an arrow the card takes the full width, and the install button drops below the text */
+.iw-a2hs__card:only-child { width: min(380px, calc(100vw - 24px)); }
+@media (max-width: 500px) {
+  .iw-a2hs__card { flex-wrap: wrap; }
+  .iw-a2hs__text { flex: 1 1 0; }
+  .iw-a2hs__go { flex: 1 1 100%; }
+}
 @media (prefers-reduced-motion: reduce) { .iw-a2hs__arrow { animation: none; } }
