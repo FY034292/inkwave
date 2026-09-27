@@ -233,7 +233,9 @@ export const DEFAULT_SETTINGS = {
   touchSensitivity: 1.0,    // touch look multiplier 0.3..3
   aimAssistTouch: true,     // aim assist for the touch controls (on by default: thumbs are far less precise)
   autoAimTouch: true,       // touch lock-on: fire / bomb swings the view onto the nearest enemy in front
-  cameraFollowTouch: true,  // touch: the view turns with the move stick and settles to a floor-inking height
+  autoFireTouch: true,      // touch: fire automatically while an enemy is on the crosshair (CoD Mobile's simple mode)
+  leftFireTouch: true,      // touch: a second fire button on the left, so the right thumb can aim while shooting
+  cameraFollowTouch: false, // touch: the view turns with the move stick and settles to a floor-inking height
 };
 
 // Quality presets consumed by the renderer + fx.

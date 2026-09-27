@@ -5,10 +5,12 @@
 // you are actively aiming or moving — never an auto-snap. Bullet magnetism pulls shots onto the body line of an enemy
 // the crosshair is actually touching (at the height you aimed), so hits register exactly as they look.
 //
-// Touch (phones) adds three helpers so the game plays without fine thumb work, each a setting that defaults on:
-//   · lock-on      — while fire / bomb is held, the view swings onto the best enemy in a wide cone in front of you
-//   · camera follow — with the look thumb idle, the view turns toward where the move stick is steering (one-thumb play)
-//   · auto pitch   — with no vertical drag for a moment, the view settles to a height that inks the floor ahead
+// Touch (phones) follows the big mobile shooters (CoD Mobile's "simple mode"):
+//   · look curve   — slow drags are finer than fast ones (a flick turns far, a nudge lines up a shot)
+//   · auto fire    — the weapon fires on its own while an enemy is under / next to the crosshair and in range (charge
+//                    weapons charge and release); the fire buttons are still there for painting
+//   · lock-on      — with an enemy near the crosshair (or fire / bomb held) the view settles onto them
+//   · camera follow + auto pitch (off by default) — the view turns with the move stick and rests at a floor-inking height
 import * as THREE from 'three';
 import { G, clamp, lerp, angleDiff, damp, dampAngle } from '../core/ctx.js';
 import { PLAYER } from '../config.js';
@@ -45,7 +47,7 @@ export class PlayerController {
     const tc = inp.touch;
     const touch = !!tc?.active;
     const assistOn = touch ? s.aimAssistTouch !== false : s.aimAssistMouse;
-    const as = this._assistTarget(assistOn ? 0.5 : 0);
+    const as = this._assistTarget(assistOn ? (touch ? 0.8 : 0.5) : 0);
     // ---- look
     const friction = as ? lerp(1, 0.58, as.closeness * as.strength) : 1;
     let lookActive = false;
@@ -61,7 +63,10 @@ export class PlayerController {
     // touch look: CSS px of finger drag (a thumb swipe across half a phone screen ≈ a half turn)
     const tdx = mapUp || !tc ? 0 : tc.lookDx, tdy = mapUp || !tc ? 0 : tc.lookDy;
     if (tdx || tdy) {
-      const sens = 0.0068 * (s.touchSensitivity ?? 1) * (assistOn ? friction : 1);
+      // response curve on drag speed: 0.75× for slow aiming drags up to 1.7× for fast flicks
+      const v = Math.hypot(tdx, tdy) / Math.max(dt, 1 / 240);
+      const t = clamp((v - 150) / 1650, 0, 1);
+      const sens = 0.0068 * (s.touchSensitivity ?? 1) * (assistOn ? friction : 1) * (0.75 + 0.95 * t * t * (3 - 2 * t));
       rig.yaw -= tdx * sens;
       rig.pitch -= tdy * sens * 0.8;
       lookActive = true;
@@ -99,6 +104,7 @@ export class PlayerController {
     it.sub = inp.mouse.right || inp.down('KeyE') || !!tc?.sub;
     it.special = inp.down('KeyF') || inp.down('KeyQ') || !!tc?.special;
     this.mapHeld = inp.down('Tab') || inp.down('KeyM') || !!tc?.map;
+    if (touch) this._autoFire(dt, tc);
     // the TAB map is a targeting UI (clicking a teammate beacon super jumps) — never fire or throw through it
     if (this.mapHeld) { it.fire = false; it.sub = false; }
     // super jump: while the map is open, 1-3 jumps to a teammate, 4 to spawn
@@ -118,16 +124,17 @@ export class PlayerController {
   // ---- touch helpers (see the header). Fire / sub input is read straight off the touch state: the intent is set after.
   _touchHelpers(dt, mx, mz, ml, tc, lookActive) {
     const a = this.a, rig = this.rig, s = G.settings;
-    const engaging = !!(tc.fire || tc.sub || a.weaponRunner?.charging);
-    // lock-on: pick (or keep) a target; while engaging, swing onto it. A drag still wins — it only slows the pull, and
-    // dragging past the cone drops the lock.
+    // lock-on: pick (or keep) a target; settle onto it while fire / bomb is held, or — with auto fire — as soon as it is
+    // near the crosshair. A drag still wins: it only slows the pull, and dragging past the cone drops the lock.
     this.lock = s.autoAimTouch !== false && a.alive ? this._lockTarget() : null;
+    this._lockErr = this.lock ? Math.hypot(angleDiff(rig.yaw, this._lockYaw), rig.pitch - this._lockPitch) : 9;
+    const engaging = !!(tc.fire || tc.sub || a.weaponRunner?.charging) || (s.autoFireTouch !== false && this._lockErr < 12 * DEG);
     if (this.lock && engaging) {
-      const k = lookActive ? 3 : 13;
+      const k = lookActive ? 3 : 9;
       rig.yaw = dampAngle(rig.yaw, this._lockYaw, k, dt);
       rig.pitch = damp(rig.pitch, this._lockPitch, k * 0.85, dt);
     }
-    if (s.cameraFollowTouch === false || a.superJumpState) return;
+    if (!s.cameraFollowTouch || a.superJumpState) return;
     // camera follow: strafing turns the view toward the heading (pure strafes most, straight ahead / back not at all)
     if (this._lookIdle > 0.45 && ml > 0.25 && !(this.lock && engaging)) {
       const rel = Math.atan2(mx, mz);
@@ -139,6 +146,26 @@ export class PlayerController {
       const rest = w.kind === 'charger' ? -0.07 : clamp(-Math.atan2(2.1, (rig.curDist || 5) + this._range(w) * 0.8), -0.3, -0.06);
       rig.pitch = damp(rig.pitch, rest, 1.6, dt);
     }
+  }
+
+  // Auto fire: pull the trigger while an enemy is on (or right next to) the crosshair and in range. Charge weapons hold
+  // until fully charged, then let go (the release is the shot). Never out of squid form or through a bomb aim.
+  _autoFire(dt, tc) {
+    const a = this.a, it = a.intent, wr = a.weaponRunner, w = a.weapon;
+    this._afCool = Math.max(0, (this._afCool || 0) - dt);
+    if (G.settings.autoFireTouch === false || it.fire || it.sub || it.squid || a.form === 'squid' || !a.alive) { this._af = false; return; }
+    const sees = (this.onTarget && this.inRange) || (this.lock && this._lockErr < 5 * DEG);
+    this.autoFiring = false;
+    if (w.kind === 'charger' || w.kind === 'splatling') {
+      if (wr.streaming || this._afCool > 0) { this._af = false; return; }
+      if (sees || (this._af && wr.charging)) {
+        this._af = true;
+        if (wr.charging && wr.charge >= 0.99) { this._af = false; this._afCool = 0.2; return; }   // release = fire
+        it.fire = true; this.autoFiring = true;
+      } else this._af = false;
+      return;
+    }
+    if (sees) { it.fire = true; this.autoFiring = true; }
   }
 
   _range(w) { return w.kind === 'charger' ? w.rangeMax : w.kind === 'roller' ? 6 : (w.range || 12); }

@@ -49,6 +49,8 @@ export class TouchControls {
     this.stick = h('div', { class: 'iw-tc__stick' }, this.knob);
     this.btns = {
       fire: btn('fire', 'fire', weaponIcon('shooter')),
+      // CoD Mobile style left-hand trigger: the left thumb shoots so the right thumb can keep aiming
+      lfire: btn('lfire', 'lfire', weaponIcon('shooter')),
       squid: btn('squid', 'squid', SQUID, 'イカ'),
       jump: btn('jump', 'jump', JUMP_ICON, 'ジャンプ'),
       sub: btn('sub', 'sub', SUB_ICONS.bomb),
@@ -57,7 +59,7 @@ export class TouchControls {
       pause: btn('pause', 'pause', PAUSE_ICON),
     };
     this.stickHint = h('div', { class: 'iw-tc__hint iw-tc__hint--l' }, 'ドラッグで移動');
-    this.lookHint = h('div', { class: 'iw-tc__hint iw-tc__hint--r' }, 'ドラッグで視点・撃てば自動で狙う');
+    this.lookHint = h('div', { class: 'iw-tc__hint iw-tc__hint--r' }, 'ドラッグで視点');
     // lock-on ring: sits on the enemy the auto aim has picked (brighter while it is pulling the view)
     this.lockRing = h('div', { class: 'iw-tc__lock' });
     this.el = h('div', { class: 'iw-tc', 'aria-hidden': 'true' },
@@ -94,7 +96,12 @@ export class TouchControls {
     const col = G.teamHex?.[a.team];
     if (col && col !== this._col) { this._col = col; this.el.style.setProperty('--c', col); }
     const kind = a.weapon?.kind || 'shooter';
-    if (kind !== this._icons.weapon) { this._icons.weapon = kind; this.btns.fire.querySelector('.iw-tc__ico').innerHTML = weaponIcon(kind); }
+    if (kind !== this._icons.weapon) {
+      this._icons.weapon = kind;
+      for (const b of [this.btns.fire, this.btns.lfire]) b.querySelector('.iw-tc__ico').innerHTML = weaponIcon(kind);
+    }
+    const lf = G.settings?.leftFireTouch !== false;
+    if (lf !== this._lf) { this._lf = lf; this.el.classList.toggle('no-lfire', !lf); }
     const sp = a.weapon?.special || 'slam';
     if (sp !== this._icons.special) { this._icons.special = sp; this.btns.special.querySelector('.iw-tc__ico').innerHTML = specialIcon(sp); }
     const ready = !!a.specialReady?.();
@@ -123,7 +130,7 @@ export class TouchControls {
         on = true;
         const x = (_p.x * 0.5 + 0.5) * innerWidth, y = (-_p.y * 0.5 + 0.5) * innerHeight;
         this.lockRing.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
-        const pull = !!(this.t.fire || this.t.sub);
+        const pull = !!(this.t.fire || this.t.sub || G.match?.controller?.autoFiring);
         if (pull !== this._pull) { this._pull = pull; this.lockRing.classList.toggle('is-pull', pull); }
       }
     }
@@ -132,7 +139,7 @@ export class TouchControls {
 
   _roleAt(e) {
     const b = e.target.closest?.('[data-btn]');
-    if (b) return { role: 'btn', btn: b.dataset.btn };
+    if (b) return b.dataset.btn === 'lfire' ? { role: 'btn', btn: 'fire', el: b, left: true } : { role: 'btn', btn: b.dataset.btn, el: b };
     // the corner minimap opens the big map (it sits in the HUD layer above, which lets touches through)
     const mm = document.querySelector('.iw-map:not(.is-expanded)');
     if (mm && mm.offsetParent) {
@@ -157,7 +164,7 @@ export class TouchControls {
       }
     }
     const r = this._roleAt(e);
-    const p = { role: r.role, btn: r.btn, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: e.timeStamp };
+    const p = { role: r.role, btn: r.btn, el: r.el, left: r.left, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: e.timeStamp };
     if (r.role === 'stick') {
       if (this.stickId !== null) p.role = 'look';
       else {
@@ -169,8 +176,7 @@ export class TouchControls {
     }
     this.ptrs.set(e.pointerId, p);
     if (p.role !== 'btn') return;
-    const b = this.btns[p.btn];
-    b?.classList.add('is-down');
+    p.el?.classList.add('is-down');
     switch (p.btn) {
       case 'fire': t.fire = true; this._setLatch(false); break;
       case 'squid': p.wasLatched = this.squidLatch; t.squid = true; this._setLatch(false); break;
@@ -206,7 +212,7 @@ export class TouchControls {
       if (m > 0.3) this._movedT = (this._movedT || 0) + 1 / 60;
       return;
     }
-    if (p.role === 'maptap' || p.btn === 'map' || p.btn === 'pause') return;
+    if (p.role === 'maptap' || p.btn === 'map' || p.btn === 'pause' || p.left) return;
     // every other touch on the right is a look pad
     this.t.lookDx += dx; this.t.lookDy += dy;
     if (Math.abs(dx) + Math.abs(dy) > 1) this._lookedT = (this._lookedT || 0) + 1 / 60;
@@ -231,8 +237,8 @@ export class TouchControls {
       return;
     }
     if (p.role !== 'btn') return;
+    p.el?.classList.remove('is-down');
     const held = this._held(p.btn);
-    if (!held) this.btns[p.btn]?.classList.remove('is-down');
     if (held) return;
     switch (p.btn) {
       case 'fire': case 'jump': case 'special': this._pend.add(p.btn); break;
@@ -262,6 +268,6 @@ export class TouchControls {
   releaseMoveButtons() {
     const t = this.t;
     t.fire = t.sub = t.special = false;
-    for (const [id, p] of this.ptrs) if (p.role === 'btn' && p.btn !== 'map') { this.btns[p.btn]?.classList.remove('is-down'); this.ptrs.delete(id); }
+    for (const [id, p] of this.ptrs) if (p.role === 'btn' && p.btn !== 'map') { p.el?.classList.remove('is-down'); this.ptrs.delete(id); }
   }
 }
