@@ -11,7 +11,7 @@
 //   · camera follow + auto pitch (off by default) — the view turns with the move stick and rests at a floor-inking height
 import * as THREE from 'three';
 import { G, clamp, lerp, angleDiff, damp, dampAngle } from '../core/ctx.js';
-import { PLAYER } from '../config.js';
+import { PLAYER, MATCH } from '../config.js';
 import { Physics, Hit } from './physics.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _fwd = new THREE.Vector3(), _c = new THREE.Vector3();
@@ -104,14 +104,13 @@ export class PlayerController {
     this.mapHeld = inp.down('Tab') || inp.down('KeyM') || !!tc?.map;
     // the TAB map is a targeting UI (clicking a teammate beacon super jumps) — never fire or throw through it
     if (this.mapHeld) { it.fire = false; it.sub = false; }
-    // super jump: while the map is open, 1-3 jumps to a teammate, 4 to spawn
+    // super jump: while the map is open, 1…(teamSize-1) jumps to a teammate, the next number to spawn
     if (this.mapHeld && a.canSuperJump()) {
       const allies = G.actors.filter((o) => o.team === a.team && o !== a);
+      const home = MATCH.teamSize - 1;
       const pick = (i) => { const o = allies[i]; if (o && o.alive && !o.superJumpState) a.superJump(o); };
-      if (inp.wasPressed('Digit1')) pick(0);
-      if (inp.wasPressed('Digit2')) pick(1);
-      if (inp.wasPressed('Digit3')) pick(2);
-      if (inp.wasPressed('Digit4')) { const p = G.level.spawnPads[a.team]; a.superJump(p.clone()); }
+      for (let i = 0; i < home; i++) if (inp.wasPressed('Digit' + (i + 1))) pick(i);
+      if (inp.wasPressed('Digit' + (home + 1))) { const p = G.level.spawnPads[a.team]; a.superJump(p.clone()); }
     }
 
     // ---- aim point from the camera centre ray
