@@ -22,6 +22,7 @@ import { Projectiles } from './game/weapons.js';
 import { CameraRig } from './game/cameraRig.js';
 import { Match } from './game/match.js';
 import { Showcase } from './game/showcase.js';
+import { InstallPrompt } from './ui/installPrompt.js';
 
 const params = new URLSearchParams(location.search);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -367,6 +368,7 @@ class Game {
   _applyAudioVolumes() { G.audio?.setVolumes?.({ master: this.settings.master, music: this.settings.music, sfx: this.settings.sfx }); }
 
   _onScreen(s) {
+    (this.installPrompt ||= new InstallPrompt()).setScreen(s);
     if (!this.showcase) return;
     if (s === 'loadout') this.showcase.showLoadout(this.profile.weapon || 'shooter', G.teamColors[0], this.profile.style);
     else if (s !== 'results') { if (this.showcase.mode === 'loadout') this.showcase.hide(); }
