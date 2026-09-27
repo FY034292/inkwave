@@ -13,7 +13,7 @@ import {
   richText, logoMarkup, mapThumb, RULE_ART, weaponIcon, specialIcon,
 } from './ui-icons.js';
 import {
-  GAME_TITLE, GAME_SUBTITLE, VERSION, WEAPONS, WEAPON_ORDER, SPECIALS, SUB, MAPS, DIFFICULTY, MATCH, QUALITY,
+  GAME_TITLE, GAME_SUBTITLE, VERSION, WEAPONS, WEAPON_ORDER, SPECIALS, SUB, MAPS, DIFFICULTY, MATCH, QUALITY, BOT_DIFFICULTY,
   DEFAULT_SETTINGS, TEAM_PALETTES, COLORBLIND_PALETTE, PROGRESSION, BOT_NAMES, TEAM_NAMES,
 } from '../config.js';
 import * as LOOK from '../game/character-style.js';
@@ -65,7 +65,7 @@ const LOCKER_TABS = [
   { id: 'outfit', label: '服装', icon: 'shirt', sections: ['outfit'] },
 ];
 const MENU_DESC = {
-  play: 'ステージと時間帯を選んで4対4のナワバリバトルへ',
+  play: 'ステージと時間帯を選んで3対3のナワバリバトルへ',
   loadout: 'ブキの性能、サブ、スペシャルを確認して選ぼう',
   locker: '髪型、帽子、目、肌、服を自分好みにしよう',
   settings: '操作、映像、音声、ゲーム設定',
@@ -76,7 +76,6 @@ const pctFmt = (v) => Math.round(v * 100) + '%';
 const SETTINGS_TABS = [
   { id: 'controls', label: '操作', icon: 'keyboard', rows: [
     { key: 'touchSensitivity', only: 'touch', label: 'タッチ感度', type: 'slider', min: 0.3, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×', help: '画面の右側をドラッグしたときの視点の回りやすさ。' },
-    { key: 'autoFireTouch', only: 'touch', label: 'オート射撃', type: 'toggle', help: '照準が相手に重なると自動で撃つ。地面を塗るときは射撃ボタンを使う。' },
     { key: 'autoAimTouch', only: 'touch', label: 'オートエイム', type: 'toggle', help: '照準の近くの相手や、撃っているときに前方の相手へ照準が自動で向く。' },
     { key: 'cameraFollowTouch', only: 'touch', label: 'カメラ自動調整', type: 'toggle', help: '移動スティックの方向へ視点が回り、視点の高さも足元を塗りやすい角度に戻る。' },
     { key: 'aimAssistTouch', only: 'touch', label: 'エイム補助（タッチ）', type: 'toggle', help: '照準の近くにいる相手へ視点が少し吸い付く。' },
@@ -85,7 +84,6 @@ const SETTINGS_TABS = [
     { key: '_howto', label: '操作一覧', type: 'link', help: 'キーボードとマウスの操作一覧。' },
   ] },
   { id: 'video', label: '映像', icon: 'monitor', rows: [
-    { key: 'fov', label: '視野角', type: 'slider', min: 65, max: 100, step: 1, fmt: (v) => Math.round(v) + '°', help: '広くすると周囲が見やすくなる。' },
     { key: 'showFps', label: 'フレーム数を表示', type: 'toggle', help: '対戦中に毎秒の描画回数を表示する。' },
   ] },
   { id: 'audio', label: '音声', icon: 'speaker', rows: [
@@ -96,15 +94,13 @@ const SETTINGS_TABS = [
   { id: 'gameplay', label: 'ゲーム', icon: 'swords', rows: [
     { key: 'cameraShake', label: '画面の揺れ', type: 'slider', min: 0, max: 1, step: 0.05, fmt: pctFmt, help: '爆発や攻撃を受けたときの画面の揺れ。' },
     { key: 'colorblind', label: '見分けやすいインク色', type: 'toggle', help: 'チームカラーを見分けやすい黄色と青にする。' },
-    { key: 'difficulty', label: '相手の強さ', type: 'seg', options: null, help: '新しい対戦で使う難易度。' },
-    { key: 'matchLength', label: '対戦時間', type: 'seg', options: null, help: 'ナワバリバトルの長さ。' },
   ] },
 ];
 const TAB_BLURB = {
   controls: '視点の速さ、エイム補助、操作一覧。',
-  video: '画質、視野角、画面効果。',
+  video: '画質、画面効果。',
   audio: '全体、音楽、効果音の音量。',
-  gameplay: '揺れ、インク色、マップ、対戦の初期設定。',
+  gameplay: '揺れ、インク色。',
 };
 
 const durLabel = (s) => (s < 120 ? `${s}秒` : `${Math.round(s / 60)}分`);
@@ -689,7 +685,7 @@ export class Menus {
       h('div', { class: 'iw-title__scrim' }),
       h('div', { class: 'iw-title__logo iw-in iw-in--logo' }, h('i', { class: 'iw-title__shock' }), h('div', { class: 'iw-title__logoin', html: logoMarkup(GAME_TITLE, GAME_SUBTITLE, 'xl') })),
       press,
-      h('div', { class: 'iw-corner iw-corner--bl iw-in' }, h('b', null, GAME_TITLE), ' · 4対4のナワバリバトル'),
+      h('div', { class: 'iw-corner iw-corner--bl iw-in' }, h('b', null, GAME_TITLE), ' · 3対3のナワバリバトル'),
       h('div', { class: 'iw-corner iw-corner--br iw-in' }, `v${this._version()}`));
     return { el, noCursor: true };
   }
@@ -702,7 +698,7 @@ export class Menus {
     const sp = this._specials()[W.special] || Object.values(this._specials())[0];
     const sub = this._sub();
     const items = [
-      { id: 'play', label: 'プレイ', sub: 'ナワバリバトル · 4対4', icon: GLYPHS.play, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary', accept: () => this._go('setup'), sound: 'ui_confirm' },
+      { id: 'play', label: 'プレイ', sub: 'ナワバリバトル · 3対3', icon: GLYPHS.play, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary', accept: () => this._go('setup'), sound: 'ui_confirm' },
       { id: 'loadout', label: 'ブキ', icon: weaponIcon(W.kind || lo.weapon), cls: 'iw-btn--menu', accept: () => this._go('loadout') },
       { id: 'locker', label: 'ロッカー', icon: GLYPHS.hanger, cls: 'iw-btn--menu', accept: () => this._go('locker') },
       { id: 'settings', label: '設定', icon: GLYPHS.gear, cls: 'iw-btn--menu', accept: () => this._go('settings') },
@@ -787,13 +783,12 @@ export class Menus {
     const s = this._settings();
     const maps = this._maps();
     const diffs = this._diffs();
-    const durations = (MATCH.durations || [90, 180]);
     const byId = (id) => maps.find((m) => m.id === id);
     const st = this._setup || (this._setup = { times: {} });
     st.times = { ...(s.stageTimes || {}), ...(st.times || {}) };
     if (!byId(st.mapId)) st.mapId = byId(s.lastStage) ? s.lastStage : maps[0].id;
-    st.difficulty = diffs[s.difficulty] ? s.difficulty : 'normal';
-    st.duration = durations.includes(s.matchLength) ? s.matchLength : (MATCH.defaultDuration || 180);
+    st.difficulty = BOT_DIFFICULTY;
+    st.duration = MATCH.defaultDuration || 180;
     const timeOf = (id) => this._stageTime(id);
     const reduced = prefersReducedMotion();
     this._preloadStages();
@@ -945,24 +940,6 @@ export class Menus {
     };
     const listEl = h('div', { class: 'iw-ss__list' }, tickets);
 
-    // ---- match options (bot skill + length)
-    const dOpts = Object.values(diffs).map((d) => [d.id, h('span', { class: 'iw-diffopt' }, h('span', { class: 'iw-pips' }, Array.from({ length: 3 }, (_, k) => h('i', { class: k < (DIFF_INFO[d.id]?.pips || 2) ? 'on' : '' }))), d.name)]);
-    const dText = h('div', { class: 'iw-setup__desc' });
-    const diffSeg = this._seg(dOpts, st.difficulty, (v) => {
-      st.difficulty = v; dText.textContent = DIFF_INFO[v]?.text || ''; restartAnim(dText, 'is-in');
-      safeCall(() => this.api.setSettings && this.api.setSettings({ difficulty: v })); updateStart();
-    });
-    dText.textContent = DIFF_INFO[st.difficulty]?.text || '';
-    const diffRow = h('div', { class: 'iw-setrow iw-setrow--stack' }, h('div', { class: 'iw-setrow__label' }, h('i', { html: GLYPHS.bot }), '相手の強さ'), diffSeg.el);
-    this._bind(diffRow, { id: 'difficulty', type: 'row', adjust: diffSeg.adjust, accept: diffSeg.cycle });
-    const lOpts = durations.map((d) => [d, durLabel(d)]);
-    const lenSeg = this._seg(lOpts, st.duration, (v) => {
-      st.duration = v; safeCall(() => this.api.setSettings && this.api.setSettings({ matchLength: v })); updateStart();
-    });
-    const lenRow = h('div', { class: 'iw-setrow iw-setrow--stack' }, h('div', { class: 'iw-setrow__label' }, h('i', { html: GLYPHS.clock }), '対戦時間'), lenSeg.el);
-    this._bind(lenRow, { id: 'length', type: 'row', adjust: lenSeg.adjust, accept: lenSeg.cycle });
-    const matchPanel = this._panel('iw-ss__match iw-in iw-in--up', diffRow, dText, lenRow);
-
     // ---- your weapon + your look + START
     const lo = this._loadout();
     const W = this._weapons()[lo.weapon];
@@ -1051,8 +1028,8 @@ export class Menus {
 
     const el = h('div', { class: 'iw-screen iw-setup iw-ss' },
       bg, h('div', { class: 'iw-ss__scrim' }),
-      this._header('ナワバリバトル', { sub: 'ステージと時間帯を選んで、相手チームと4対4' }),
-      h('div', { class: 'iw-ss__left' }, h('div', { class: 'iw-seclabel iw-in' }, h('i', { html: GLYPHS.map }), 'ステージ'), listEl, matchPanel),
+      this._header('ナワバリバトル', { sub: 'ステージと時間帯を選んで、相手チームと3対3' }),
+      h('div', { class: 'iw-ss__left' }, h('div', { class: 'iw-seclabel iw-in' }, h('i', { html: GLYPHS.map }), 'ステージ'), listEl),
       hero,
       h('div', { class: 'iw-ss__foot' }, weaponChip, lookChip, start),
       this._prompts([[['↑', '↓'], 'DPad', 'ステージ'], [['←', '→'], null, '昼 · 夕方'], ['Enter', 'A', '決定'], ['Esc', 'B', '戻る']]));
@@ -1060,11 +1037,9 @@ export class Menus {
     // explicit focus graph (rows with ←/→ adjust would otherwise trap the pad in a column)
     const selTicket = () => tickets.find((x) => x._mid === st.mapId) || tickets[0];
     const graph = new Map();
-    tickets.forEach((t, i) => graph.set(t, { up: tickets[i - 1] || null, down: tickets[i + 1] || diffRow }));
-    graph.set(diffRow, { up: selTicket, down: lenRow });
-    graph.set(lenRow, { up: diffRow, down: start });
+    tickets.forEach((t, i) => graph.set(t, { up: tickets[i - 1] || null, down: tickets[i + 1] || start }));
     graph.set(tgl, { up: null, down: start });
-    graph.set(weaponChip, { up: tgl, down: null, left: lenRow, right: lookChip });
+    graph.set(weaponChip, { up: tgl, down: null, left: selTicket, right: lookChip });
     graph.set(lookChip, { up: tgl, down: null, left: weaponChip, right: start });
     graph.set(start, { up: tgl, down: null, left: lookChip, right: null });
 
@@ -1099,7 +1074,7 @@ export class Menus {
     const st = this._setup;
     const time = this._stageTime(st.mapId);
     const cfg = { mapId: st.mapId, time, difficulty: st.difficulty, duration: st.duration };
-    safeCall(() => this.api.setSettings && this.api.setSettings({ difficulty: st.difficulty, matchLength: st.duration, lastStage: st.mapId, stageTimes: { ...(st.times || {}) } }));
+    safeCall(() => this.api.setSettings && this.api.setSettings({ lastStage: st.mapId, stageTimes: { ...(st.times || {}) } }));
     if (this._scr) {
       this._scr.el.classList.add('is-launch');
       const b = this._scr.el.querySelector('.iw-btn--start');

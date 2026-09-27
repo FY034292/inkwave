@@ -1,8 +1,8 @@
 // Map diorama overlay. While the map is held, the camera rig swoops the RENDERED view up into a tilted overhead shot of
 // the real stage (the live scene with its live ink — nothing is rebuilt; see CameraRig.mapK / _diorama). This layer
 // pins the people and places onto that view, Splatoon-style:
-//   · you (arrow = facing), your three teammates (weapon badge, name, [1]–[3]; greyed with a countdown while splatted),
-//     your base ([4]) — enemies are not shown
+//   · you (arrow = facing), your teammates (weapon badge, name, [1]…[ALLIES]; greyed with a countdown while splatted),
+//     your base (the next number) — enemies are not shown
 //   · a virtual map cursor (pointer stays locked: mouse deltas) that snaps to pins and tilts the diorama a
 //     touch toward itself; click on a pin, or use the number keys, to Super Jump — an ink arc previews the jump
 //   · a miniature finish: tilt-shift blur bands, a soft vignette, the stage name
@@ -10,17 +10,20 @@
 import { h, clamp } from './ui-util.js';
 import { keycap, weaponIcon } from './ui-icons.js';
 import { G } from '../core/ctx.js';
+import { MATCH } from '../config.js';
 import * as THREE from 'three';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
 const K = '#15121c';
 const HOME_ICON = `<svg viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="46" rx="22" ry="8.5" fill="none" stroke="${K}" stroke-width="8"/><ellipse cx="32" cy="46" rx="22" ry="8.5" fill="none" stroke="#fff" stroke-width="4"/><path d="M32 8 L32 34 M21 24 L32 36 L43 24" fill="none" stroke="${K}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M32 8 L32 34 M21 24 L32 36 L43 24" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ARROW = `<svg viewBox="-16 -16 32 32" aria-hidden="true"><path d="M0 -12 L10 10 L0 5 L-10 10 Z" fill="${K}" stroke="${K}" stroke-width="5" stroke-linejoin="round"/><path d="M0 -12 L10 10 L0 5 L-10 10 Z" fill="#fff"/></svg>`;
+// pin order: allies 0…ALLIES-1, then the base (HOME), then you (SELF). Key numbers are index + 1, no gaps.
+const ALLIES = MATCH.teamSize - 1, HOME = ALLIES, SELF = ALLIES + 1;
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
 export class DioramaOverlay {
   constructor(root) {
-    this.pins = [0, 1, 2, 3, 4].map((i) => this._pin(i));        // 0–2 allies, 3 base, 4 you
+    this.pins = Array.from({ length: SELF + 1 }, (_, i) => this._pin(i));
     this.arc = h('svg', { class: 'iw-dio__arc', 'aria-hidden': 'true' });
     this.arc.innerHTML = '<path class="o"/><path class="i"/>';
     this.cursor = h('div', { class: 'iw-dio__cur' }, h('i'));
@@ -42,7 +45,7 @@ export class DioramaOverlay {
   }
 
   _pin(i) {
-    const self = i === 4, home = i === 3;
+    const self = i === SELF, home = i === HOME;
     const icon = h('span', { class: 'iw-pin__icon', html: self ? ARROW : home ? HOME_ICON : '' });
     const name = h('span', { class: 'iw-pin__name' }, self ? 'YOU' : home ? 'BASE' : '');
     const state = h('span', { class: 'iw-pin__state' });
@@ -75,19 +78,19 @@ export class DioramaOverlay {
     if (col !== this._last.col) { this._last.col = col; this.el.style.setProperty('--c', col); }
     const canJump = !!(me.alive && me.canSuperJump && me.canSuperJump());
     // ---- pins
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i <= SELF; i++) {
       const p = this.pins[i];
       let tgt = null, ok = false, label = '', st = '', dead = false, weapon = null;
-      if (i < 3) {
+      if (i < ALLIES) {
         const o = allies[i];
         if (o) {
           tgt = o.pos; ok = !!(o.alive && !o.superJumpState); label = o.name; weapon = o.weaponId || o.weapon?.kind || 'shooter';
           dead = !o.alive; if (dead) st = String(Math.max(1, Math.ceil(o.respawnTimer || 0)));
           else if (o.superJumpState) st = '↑';
         }
-      } else if (i === 3) { tgt = G.level?.spawnPads?.[me.team] || null; ok = !!tgt; }
+      } else if (i === HOME) { tgt = G.level?.spawnPads?.[me.team] || null; ok = !!tgt; }
       else { tgt = me.visualPos ? me.visualPos(_v2) : me.pos; ok = true; dead = !me.alive; }
-      p.target = i < 3 ? allies[i] || null : null; p.ok = ok && canJump && i !== 4;
+      p.target = i < ALLIES ? allies[i] || null : null; p.ok = ok && canJump && i !== SELF;
       if (!tgt) { if (p.vis) { p.vis = false; p.el.style.display = 'none'; } continue; }
       _v.set(tgt.x, tgt.y + 0.1, tgt.z).project(cam);
       const behind = _v.z > 1;
@@ -96,7 +99,7 @@ export class DioramaOverlay {
       if (behind) { if (p.vis) { p.vis = false; p.el.style.display = 'none'; } continue; }
       if (!p.vis) { p.vis = true; p.el.style.display = ''; }
       p.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
-      if (i === 4) {
+      if (i === SELF) {
         // facing arrow: screen-space direction of the player's forward
         const f = me.yaw || 0;
         _v2.set(tgt.x + Math.sin(f) * 3, tgt.y + 0.1, tgt.z + Math.cos(f) * 3).project(cam);
@@ -106,7 +109,7 @@ export class DioramaOverlay {
       const key = `${label}|${st}|${dead ? 1 : 0}|${p.ok ? 1 : 0}|${this.hover === i ? 1 : 0}|${weapon}`;
       if (key !== p.key) {
         p.key = key;
-        if (i < 3) {
+        if (i < ALLIES) {
           p.name.textContent = label;
           if (weapon !== p.weapon) { p.weapon = weapon; p.icon.innerHTML = weaponIcon(weapon); }
         }
@@ -129,7 +132,7 @@ export class DioramaOverlay {
     }
     // snap: nearest jumpable pin within reach
     let best = -1, bd = 72;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < SELF; i++) {
       const p = this.pins[i];
       if (!p.vis) continue;
       const d = Math.hypot(p.x - this.cx * W, p.y - 34 - this.cy * H);
@@ -149,11 +152,11 @@ export class DioramaOverlay {
     if (inp && this.k > 0.7) {
       const click = inp.locked && inp.mouse.leftPressed;
       if (click && this.hover >= 0) this._jump(this.hover, me);
-      for (let i = 0; i < 4; i++) if (inp.wasPressed?.('Digit' + (i + 1))) this._flash(i);
+      for (let i = 0; i < SELF; i++) if (inp.wasPressed?.('Digit' + (i + 1))) this._flash(i);
     }
     // ---- jump arc preview
-    const sp = this.pins[4], hp = this.hover >= 0 ? this.pins[this.hover] : null;
-    const showArc = !!(hp && hp.vis && sp.vis && canJump && (this.hover === 3 || hp.ok));
+    const sp = this.pins[SELF], hp = this.hover >= 0 ? this.pins[this.hover] : null;
+    const showArc = !!(hp && hp.vis && sp.vis && canJump && (this.hover === HOME || hp.ok));
     if (showArc !== this._last.arc) { this._last.arc = showArc; this.arc.classList.toggle('is-on', showArc); }
     if (showArc) {
       const x0 = sp.x, y0 = sp.y, x1 = hp.x, y1 = hp.y;
@@ -168,7 +171,7 @@ export class DioramaOverlay {
   pinAt(x, y) {
     if (!this.on || this.k < 0.7) return -1;
     let best = -1, bd = 64;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < SELF; i++) {
       const p = this.pins[i];
       if (!p.vis) continue;
       const d = Math.min(Math.hypot(p.x - x, p.y - 34 - y), Math.hypot(p.x - x, p.y - y));
@@ -182,7 +185,7 @@ export class DioramaOverlay {
     const p = this.pins[i];
     if (!me || !me.canSuperJump || !me.canSuperJump()) { G.audio?.play?.('ui_error', { volume: 0.5 }); return; }
     let ok = false;
-    if (i === 3) { const pad = G.level?.spawnPads?.[me.team]; ok = pad ? me.superJump(pad.clone()) : false; }
+    if (i === HOME) { const pad = G.level?.spawnPads?.[me.team]; ok = pad ? me.superJump(pad.clone()) : false; }
     else if (p.target && p.target.alive && !p.target.superJumpState) ok = me.superJump(p.target);
     this._flash(i);
     G.audio?.play?.(ok ? 'ui_confirm' : 'ui_error', { volume: 0.55 });
@@ -198,6 +201,6 @@ export class DioramaOverlay {
     this.title.textContent = (m?.name || 'Stage').toUpperCase();
     this.when.textContent = G.game?.time === 'dusk' ? 'DUSK' : 'DAY';
     if (document.documentElement.classList.contains('is-touch')) { this.foot.innerHTML = '<span>ピンをタップしてスーパージャンプ</span> <em>·</em> <span>ほかの場所をタップして閉じる</span>'; return; }
-    this.foot.innerHTML = `${keycap('1')}${keycap('2')}${keycap('3')} <span>仲間へスーパージャンプ</span> ${keycap('4')} <span>スタート地点</span> <em>·</em> <span>ピンをクリックして選択</span> <em>·</em> <span>放して閉じる</span> ${keycap('TAB')}`;
+    this.foot.innerHTML = `${Array.from({ length: ALLIES }, (_, i) => keycap(String(i + 1))).join('')} <span>仲間へスーパージャンプ</span> ${keycap(String(HOME + 1))} <span>スタート地点</span> <em>·</em> <span>ピンをクリックして選択</span> <em>·</em> <span>放して閉じる</span> ${keycap('TAB')}`;
   }
 }

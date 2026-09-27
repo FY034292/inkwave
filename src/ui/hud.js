@@ -13,7 +13,7 @@
 //   kill X + ring burst, charge ring + full flash, spawn-shield ring, bomb-aim cost chip) · damage direction arcs ·
 //   sloshing canvas ink tank (bubbles on refill, sub-cost line, low/empty states) · kill cards (victim + weapon) ·
 //   streak callouts (first/double/triple/quad/wipeout/revenge/streak) · assist cards · ally-down pings in 3D ·
-//   ally tags with weapon icons · minimap frame with super-jump beacons (1-4 keys, virtual cursor, click to jump) ·
+//   ally tags with weapon icons · minimap frame with super-jump beacons (1…N keys: allies then the spawn pad, virtual cursor, click to jump) ·
 //   intro team lineup · banners · final countdown · splatted card · judge reveal · feed.
 //
 // Conventions for frame fields the contract leaves open:
@@ -26,6 +26,8 @@ import { WEAPONS, SPECIALS, TEAM_NAMES, SUB, PLAYER, MATCH } from '../config.js'
 import { on, G } from '../core/ctx.js';
 
 let HUD_ID = 0;
+// super-jump beacons: one per ally, then the spawn pad (key numbers run 1…BCN_N with no gaps)
+const BCN_N = MATCH.teamSize, BCN_HOME = BCN_N - 1;
 const BUMP = { duration: 320, easing: 'cubic-bezier(.34,1.8,.64,1)' };
 // dualies: the ring of the pistol that just fired jabs outward (SVG → Web Animations; the reflow restart trick needs HTML)
 const TWIN_KICK = [{ transform: 'scale(1.55)', strokeWidth: '2.6px' }, { transform: 'scale(1)', strokeWidth: '1.8px' }];
@@ -88,7 +90,7 @@ export class HUD {
     this.ctx = this.canvas.getContext('2d');
 
     // ---- top bar: roster + timer
-    const squad = (side) => h('div', { class: `iw-squad iw-squad--${side}` }, Array.from({ length: 4 }, () => {
+    const squad = (side) => h('div', { class: `iw-squad iw-squad--${side}` }, Array.from({ length: MATCH.teamSize }, () => {
       const ring = h('i', { class: 'iw-sq__ring', html: '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" pathLength="100"/></svg>' });
       return h('span', { class: 'iw-sq' },
         h('span', { class: 'iw-sq__badge', html: `<svg class="iw-sq__shape" viewBox="0 0 64 64" aria-hidden="true"><path class="o" d="${BADGE_PATH}"/><path class="f" d="${BADGE_PATH}"/><path class="g" d="M17 30 Q20 22 28 19"/></svg>` },
@@ -154,13 +156,13 @@ export class HUD {
     this.mapDots = Array.from({ length: 8 }, () => h('i', { class: 'iw-mdot', html: '<b></b>' + arrow }));
     this.mapFrame = h('div', { class: 'iw-map__frame' }, this.mapSlot, h('div', { class: 'iw-map__dots' }, this.mapDots), h('i', { class: 'iw-map__gloss' }));
     this.mapLabel = h('div', { class: 'iw-map__label' }, h('span', { html: keycap('TAB') }), h('span', null, 'マップ'));
-    this.beacons = Array.from({ length: 4 }, (_, i) => {
-      const b = h('div', { class: 'iw-bcn' + (i === 3 ? ' iw-bcn--home' : '') },
+    this.beacons = Array.from({ length: BCN_N }, (_, i) => {
+      const b = h('div', { class: 'iw-bcn' + (i === BCN_HOME ? ' iw-bcn--home' : '') },
         h('span', { class: 'iw-bcn__stem' }, h('i')),
         h('span', { class: 'iw-bcn__pulse' }),
-        h('span', { class: 'iw-bcn__disc' }, h('span', { class: 'iw-bcn__icon', html: i === 3 ? SPAWN_ICON : '' })),
+        h('span', { class: 'iw-bcn__disc' }, h('span', { class: 'iw-bcn__icon', html: i === BCN_HOME ? SPAWN_ICON : '' })),
         h('span', { class: 'iw-bcn__key' }, String(i + 1)),
-        h('span', { class: 'iw-bcn__label' }, h('small', null, 'スーパージャンプ'), h('b', null, i === 3 ? 'スタート地点' : '')));
+        h('span', { class: 'iw-bcn__label' }, h('small', null, 'スーパージャンプ'), h('b', null, i === BCN_HOME ? 'スタート地点' : '')));
       b.addEventListener('pointerenter', () => { if (this._map.open) this._map.hover = i; });
       b.addEventListener('pointerleave', () => { if (this._map.hover === i) this._map.hover = -1; });
       b.addEventListener('click', (e) => { e.stopPropagation(); this._jumpTo(i); });
@@ -168,11 +170,11 @@ export class HUD {
     });
     this.mapCursor = h('div', { class: 'iw-mcur' }, h('i'));
     this.mapJumpLine = h('div', { class: 'iw-map__jline', html: '<svg aria-hidden="true"><path/></svg>' });
-    this.legendRows = Array.from({ length: 4 }, (_, i) => {
-      const row = h('div', { class: 'iw-lg__row' + (i === 3 ? ' is-home' : '') },
+    this.legendRows = Array.from({ length: BCN_N }, (_, i) => {
+      const row = h('div', { class: 'iw-lg__row' + (i === BCN_HOME ? ' is-home' : '') },
         h('span', { class: 'iw-lg__key', html: keycap(String(i + 1)) }),
-        h('span', { class: 'iw-lg__w', html: i === 3 ? SPAWN_ICON : '' }),
-        h('span', { class: 'iw-lg__name' }, i === 3 ? 'スタート地点' : '—'),
+        h('span', { class: 'iw-lg__w', html: i === BCN_HOME ? SPAWN_ICON : '' }),
+        h('span', { class: 'iw-lg__name' }, i === BCN_HOME ? 'スタート地点' : '—'),
         h('span', { class: 'iw-lg__st' }));
       row.addEventListener('pointerenter', () => { if (this._map.open) this._map.hover = i; });
       row.addEventListener('pointerleave', () => { if (this._map.hover === i) this._map.hover = -1; });
@@ -735,7 +737,7 @@ export class HUD {
     for (let t = 0; t < 2; t++) {
       const ps = (teams[t] && teams[t].players) || [];
       const icons = this.squads[t].children;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < icons.length; i++) {
         const p = ps[i];
         const el = icons[i];
         const k = `sq${t}${i}`;
@@ -1129,20 +1131,20 @@ export class HUD {
   // beacon targets: allies in actor order (same numbering as the player controller), then the base spawn pad
   _beaconTargets() {
     const me = this._local();
-    const out = [null, null, null, null];
+    const out = Array.from({ length: BCN_N }, () => null);
     if (this.lab && this.lab.beacons) return this.lab.beacons;
     if (!me) return out;
     const allies = (G.actors || []).filter((o) => o.team === me.team && o !== me);
     const mm = G.game && G.game.minimap;
     const tc = { x: 0, y: 0 };
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < BCN_HOME; i++) {
       const o = allies[i];
       if (!o || !mm) continue;
       mm.toCanvas(o.pos.x, o.pos.z, tc);
       out[i] = { x: tc.x / mm.w, y: tc.y / mm.h, name: o.name, weapon: o.weaponId, ok: !!(o.alive && !o.superJumpState), respawn: o.alive ? 0 : Math.ceil(o.respawnTimer || 0), actor: o };
     }
     const pad = G.level && G.level.spawnPads && G.level.spawnPads[me.team];
-    if (pad && mm) { mm.toCanvas(pad.x, pad.z, tc); out[3] = { x: tc.x / mm.w, y: tc.y / mm.h, name: 'スタート地点', ok: true, home: true, pad }; }
+    if (pad && mm) { mm.toCanvas(pad.x, pad.z, tc); out[BCN_HOME] = { x: tc.x / mm.w, y: tc.y / mm.h, name: 'スタート地点', ok: true, home: true, pad }; }
     return out;
   }
 
@@ -1160,7 +1162,7 @@ export class HUD {
       M.cx = clamp(M.cx + (inp.mouse.dx || 0) / Math.max(80, bw), 0.02, 0.98);
       M.cy = clamp(M.cy + (inp.mouse.dy || 0) / Math.max(80, bh), 0.02, 0.98);
       let best = -1, bd = 0.09;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < BCN_N; i++) {
         const b = tg[i]; if (!b) continue;
         const d = Math.hypot((b.x - M.cx) * bw, (b.y - M.cy) * bh) / Math.max(bw, bh);
         if (d < bd) { bd = d; best = i; }
@@ -1172,14 +1174,14 @@ export class HUD {
     }
     if (M.open !== L.curOn) { L.curOn = M.open; this.mapCursor.classList.toggle('is-on', !!(M.open && inp && inp.locked)); }
     // number keys pressed this frame → flash the matching beacon (the controller performs the jump)
-    if (M.open && inp) for (let i = 0; i < 4; i++) if (inp.wasPressed && inp.wasPressed('Digit' + (i + 1))) { M.pressed = i; M.pressT = 0.5; this._restart(this.beacons[i], 'is-press'); }
+    if (M.open && inp) for (let i = 0; i < BCN_N; i++) if (inp.wasPressed && inp.wasPressed('Digit' + (i + 1))) { M.pressed = i; M.pressT = 0.5; this._restart(this.beacons[i], 'is-press'); }
     M.pressT = Math.max(0, M.pressT - dt);
     // spread overlapping beacons apart (allies often stand together at spawn); stems point at the true spots
-    const P = this._bcnP || (this._bcnP = [0, 1, 2, 3].map(() => ({ x: 0, y: 0, ox: 0, oy: 0, on: false })));
+    const P = this._bcnP || (this._bcnP = Array.from({ length: BCN_N }, () => ({ x: 0, y: 0, ox: 0, oy: 0, on: false })));
     const minD = u * 3.4 * 1.3 * (this._mapT > 0.5 ? 1 : 0.6);
-    for (let i = 0; i < 4; i++) { const b = tg[i], p = P[i]; p.on = !!b; if (b) { p.x = p.ox = b.x * bw; p.y = p.oy = b.y * bh; } }
+    for (let i = 0; i < BCN_N; i++) { const b = tg[i], p = P[i]; p.on = !!b; if (b) { p.x = p.ox = b.x * bw; p.y = p.oy = b.y * bh; } }
     for (let it = 0; it < 6; it++) {
-      for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) {
+      for (let i = 0; i < BCN_N; i++) for (let j = i + 1; j < BCN_N; j++) {
         const a = P[i], c = P[j]; if (!a.on || !c.on) continue;
         let dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy);
         if (d >= minD) continue;
@@ -1188,7 +1190,7 @@ export class HUD {
         a.x -= (dx / d) * push; a.y -= (dy / d) * push; c.x += (dx / d) * push; c.y += (dy / d) * push;
       }
     }
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < BCN_N; i++) {
       const el = this.beacons[i], b = tg[i], p = P[i];
       const key = b ? `${p.x.toFixed(0)}|${p.y.toFixed(0)}|${p.ox.toFixed(0)}|${p.oy.toFixed(0)}|${b.ok ? 1 : 0}|${b.respawn || 0}|${M.hover === i ? 1 : 0}|${canJump ? 1 : 0}|${b.name}` : 'x';
       this._updLegendRow(i, b, canJump);

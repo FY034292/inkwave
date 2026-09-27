@@ -35,9 +35,9 @@ export const PLAYER = {
   swimJumpVel: 9.4,
   gravity: 25,
   maxFall: 40,
-  inkMax: 100,
-  inkRefillSwim: 42,     // per second while submerged
-  inkRefillKid: 9,       // per second in kid form after idle delay
+  inkMax: 130,           // a roomier tank (was 100); refill rates scale with it so a full refill takes as long as before
+  inkRefillSwim: 55,     // per second while submerged
+  inkRefillKid: 12,      // per second in kid form after idle delay
   inkRefillDelay: 0.9,
   enemyInkDps: 32,       // damage/s while standing in enemy ink ...
   enemyInkDamageCap: 64, // ... never takes you below (hp - cap) from ink alone
@@ -180,16 +180,19 @@ export const SPECIALS = {
 
 // ---- Match ----
 export const MATCH = {
-  durations: [90, 180],     // seconds
+  durations: [180],         // seconds (every match is 3 minutes)
   defaultDuration: 180,
   finalCountdown: 10,
-  teamSize: 4,
+  teamSize: 3,
   pointsPerM2: 1.0,          // turf points per square metre newly inked
 };
 
+// CPU opponents always play at BOT_DIFFICULTY (the difficulty picker was removed).
+export const BOT_DIFFICULTY = 'easy';
 export const DIFFICULTY = {
   // aimOmega / aimTurn: bot aim spring stiffness (rad/s) and turn-rate cap (rad/s) — see bots.js
-  easy:   { id: 'easy',   name: 'やさしい',  reaction: 0.55, aimError: 0.11, fireDiscipline: 0.55, awareness: 16, aimOmega: 9,  aimTurn: 7 },
+  // aimFlinch: chance per second that the bot's aim suddenly slips off target; aimFlinchMag: size of that slip (rad)
+  easy:   { id: 'easy',   name: 'やさしい',  reaction: 0.55, aimError: 0.11, fireDiscipline: 0.55, awareness: 16, aimOmega: 9,  aimTurn: 7, aimFlinch: 0.9, aimFlinchMag: 0.2 },
   normal: { id: 'normal', name: 'ふつう',  reaction: 0.32, aimError: 0.06, fireDiscipline: 0.8,  awareness: 21, aimOmega: 13, aimTurn: 10 },
   hard:   { id: 'hard',   name: 'むずかしい', reaction: 0.17, aimError: 0.03, fireDiscipline: 0.95, awareness: 26, aimOmega: 18, aimTurn: 14 },
 };
@@ -215,10 +218,12 @@ export const PROGRESSION = {
   xpWin: 1200, xpLose: 500, xpPerTurfPoint: 1.0, xpPerSplat: 40,
 };
 
+export const FIXED_FOV = 65;
+
 // ---- Settings defaults (persisted in localStorage 'inkwave.settings') ----
 export const DEFAULT_SETTINGS = {
   sensitivity: 1.0,         // mouse multiplier 0.2..3
-  fov: 82,                  // horizontal FOV at 16:9, 65..100
+  fov: 65,                  // horizontal FOV at 16:9 — fixed for everyone (FIXED_FOV), no longer a setting
   quality: 'low',
   shadows: false,
   bloom: false,
@@ -227,12 +232,11 @@ export const DEFAULT_SETTINGS = {
   master: 0.8, music: 0.6, sfx: 0.85,
   colorblind: false,
   matchLength: 180,
-  difficulty: 'normal',
+  difficulty: 'easy',
   aimAssistMouse: false,    // optional aim assist for mouse
   touchSensitivity: 1.0,    // touch look multiplier 0.3..3
   aimAssistTouch: true,     // aim assist for the touch controls (on by default: thumbs are far less precise)
   autoAimTouch: true,       // touch lock-on: fire / bomb swings the view onto the nearest enemy in front
-  autoFireTouch: true,      // touch: fire automatically while an enemy is on the crosshair (CoD Mobile's simple mode)
   cameraFollowTouch: false, // touch: the view turns with the move stick and settles to a floor-inking height
 };
 

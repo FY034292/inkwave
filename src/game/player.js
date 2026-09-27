@@ -7,13 +7,11 @@
 //
 // Touch (phones) follows the big mobile shooters (CoD Mobile's "simple mode"):
 //   · look curve   — slow drags are finer than fast ones (a flick turns far, a nudge lines up a shot)
-//   · auto fire    — the weapon fires on its own while an enemy is under / next to the crosshair and in range (charge
-//                    weapons charge and release); the fire button is still there for painting
 //   · lock-on      — with an enemy near the crosshair (or fire / bomb held) the view settles onto them
 //   · camera follow + auto pitch (off by default) — the view turns with the move stick and rests at a floor-inking height
 import * as THREE from 'three';
 import { G, clamp, lerp, angleDiff, damp, dampAngle } from '../core/ctx.js';
-import { PLAYER } from '../config.js';
+import { PLAYER, MATCH } from '../config.js';
 import { Physics, Hit } from './physics.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _fwd = new THREE.Vector3(), _c = new THREE.Vector3();
@@ -104,17 +102,15 @@ export class PlayerController {
     it.sub = inp.mouse.right || inp.down('KeyE') || !!tc?.sub;
     it.special = inp.down('KeyF') || inp.down('KeyQ') || !!tc?.special;
     this.mapHeld = inp.down('Tab') || inp.down('KeyM') || !!tc?.map;
-    if (touch) this._autoFire(dt, tc);
     // the TAB map is a targeting UI (clicking a teammate beacon super jumps) — never fire or throw through it
     if (this.mapHeld) { it.fire = false; it.sub = false; }
-    // super jump: while the map is open, 1-3 jumps to a teammate, 4 to spawn
+    // super jump: while the map is open, 1…(teamSize-1) jumps to a teammate, the next number to spawn
     if (this.mapHeld && a.canSuperJump()) {
       const allies = G.actors.filter((o) => o.team === a.team && o !== a);
+      const home = MATCH.teamSize - 1;
       const pick = (i) => { const o = allies[i]; if (o && o.alive && !o.superJumpState) a.superJump(o); };
-      if (inp.wasPressed('Digit1')) pick(0);
-      if (inp.wasPressed('Digit2')) pick(1);
-      if (inp.wasPressed('Digit3')) pick(2);
-      if (inp.wasPressed('Digit4')) { const p = G.level.spawnPads[a.team]; a.superJump(p.clone()); }
+      for (let i = 0; i < home; i++) if (inp.wasPressed('Digit' + (i + 1))) pick(i);
+      if (inp.wasPressed('Digit' + (home + 1))) { const p = G.level.spawnPads[a.team]; a.superJump(p.clone()); }
     }
 
     // ---- aim point from the camera centre ray
@@ -124,11 +120,11 @@ export class PlayerController {
   // ---- touch helpers (see the header). Fire / sub input is read straight off the touch state: the intent is set after.
   _touchHelpers(dt, mx, mz, ml, tc, lookActive) {
     const a = this.a, rig = this.rig, s = G.settings;
-    // lock-on: pick (or keep) a target; settle onto it while fire / bomb is held, or — with auto fire — as soon as it is
-    // near the crosshair. A drag always wins: no pull while the thumb is moving the view.
+    // lock-on: pick (or keep) a target; settle onto it while fire / bomb is held.
+    // A drag always wins: no pull while the thumb is moving the view.
     this.lock = s.autoAimTouch !== false && a.alive ? this._lockTarget() : null;
     this._lockErr = this.lock ? Math.hypot(angleDiff(rig.yaw, this._lockYaw), rig.pitch - this._lockPitch) : 9;
-    const engaging = !!(tc.fire || tc.sub || a.weaponRunner?.charging) || (s.autoFireTouch !== false && this._lockErr < 12 * DEG);
+    const engaging = !!(tc.fire || tc.sub || a.weaponRunner?.charging);
     if (this.lock && engaging && !lookActive) {
       const k = 9;
       rig.yaw = dampAngle(rig.yaw, this._lockYaw, k, dt);
@@ -146,26 +142,6 @@ export class PlayerController {
       const rest = w.kind === 'charger' ? -0.07 : clamp(-Math.atan2(2.1, (rig.curDist || 5) + this._range(w) * 0.8), -0.3, -0.06);
       rig.pitch = damp(rig.pitch, rest, 1.6, dt);
     }
-  }
-
-  // Auto fire: pull the trigger while an enemy is on (or right next to) the crosshair and in range. Charge weapons hold
-  // until fully charged, then let go (the release is the shot). Never out of squid form or through a bomb aim.
-  _autoFire(dt, tc) {
-    const a = this.a, it = a.intent, wr = a.weaponRunner, w = a.weapon;
-    this._afCool = Math.max(0, (this._afCool || 0) - dt);
-    if (G.settings.autoFireTouch === false || it.fire || it.sub || it.squid || a.form === 'squid' || !a.alive) { this._af = false; return; }
-    const sees = (this.onTarget && this.inRange) || (this.lock && this._lockErr < 5 * DEG);
-    this.autoFiring = false;
-    if (w.kind === 'charger' || w.kind === 'splatling') {
-      if (wr.streaming || this._afCool > 0) { this._af = false; return; }
-      if (sees || (this._af && wr.charging)) {
-        this._af = true;
-        if (wr.charging && wr.charge >= 0.99) { this._af = false; this._afCool = 0.2; return; }   // release = fire
-        it.fire = true; this.autoFiring = true;
-      } else this._af = false;
-      return;
-    }
-    if (sees) { it.fire = true; this.autoFiring = true; }
   }
 
   _range(w) { return w.kind === 'charger' ? w.rangeMax : w.kind === 'roller' ? 6 : (w.range || 12); }
