@@ -15,17 +15,6 @@ import { isTouchDevice } from './input.js';
 // this back down toward 1× if the frame rate can't hold.
 const TOUCH_PR = 1.5;
 const prCap = (q) => Math.max(q.pixelRatio, isTouchDevice() ? TOUCH_PR : 0);
-// The drawing size comes from the box the canvas actually fills (#app, fixed to the whole screen), not innerWidth /
-// innerHeight: on phones those can report a shorter viewport than the one on screen (iOS in landscape, the home
-// indicator area with viewport-fit=cover, a stale value after rotating). Depending on which size won, that showed
-// either an unrendered black band along the bottom, or a picture stretched to the full screen with the camera aspect
-// of the shorter one (the kids and the stage looked out of scale). The canvas CSS stays 100 % × 100 % of that box, and
-// the render size and camera aspect always come from the same measurement.
-const viewSize = (canvas) => {
-  const el = canvas?.parentElement;
-  const w = (el && el.clientWidth) || window.innerWidth, h = (el && el.clientHeight) || window.innerHeight;
-  return [w, h];
-};
 
 const GradeShader = {
   uniforms: {
@@ -115,14 +104,10 @@ export class Renderer {
     const r = this.renderer, q = this.q;
     if (this.composer) { this.composer.renderTarget1.dispose(); this.composer.renderTarget2.dispose(); }
     this.dynScale = this.dynScale || 1;
-    const pr = Math.min(window.devicePixelRatio || 1, prCap(q)) * this.dynScale;
-    r.setPixelRatio(pr);
-    const [w, h] = viewSize(r.domElement);
-    r.setSize(w, h, false);
-    const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: q.msaa || 0 });
+    // passes are created at 1×1; resize() below gives everything (buffers, passes, camera) the real size in one place
+    const w = 1, h = 1;
+    const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: q.msaa || 0 });
     const comp = (this.composer = new EffectComposer(r, rt));
-    comp.setPixelRatio(pr);
-    comp.setSize(w, h);
     this.renderPass = new RenderPass(this.scene, this.camera);
     comp.addPass(this.renderPass);
     this.gtao = null;
@@ -145,8 +130,8 @@ export class Renderer {
     this.outputPass = new OutputPass();
     comp.addPass(this.outputPass);
     r.shadowMap.enabled = this.settings.shadows !== false;
-    this._w = w; this._h = h;
-    this.grade.uniforms.uAspect.value = w / h;
+    this._w = 0;
+    this.resize();
   }
 
   // Install (or replace) the screen-FX post pass; kept across quality/setting rebuilds.
@@ -168,26 +153,29 @@ export class Renderer {
     if (this.bloom) this.bloom.enabled = !!(this.q.bloom && settings.bloom);
   }
 
-  // Preserve native CSS pixel density when possible, dropping resolution only when frames need it.
+  // Render density: native CSS pixels up to the preset cap, lowered by main.js when frames can't hold (applied by resize).
   setDynamicScale(s) {
-    s = Math.max(0.65, Math.min(1, s));
-    if (Math.abs(s - this.dynScale) < 0.01) return;
-    this.dynScale = s;
-    const pr = Math.min(window.devicePixelRatio || 1, prCap(this.q)) * s;
-    this.renderer.setPixelRatio(pr);
-    this.composer.setPixelRatio(pr);
-    this.composer.setSize(this._w, this._h);
+    this.dynScale = Math.max(0.65, Math.min(1, s));
   }
 
+  // The one place that sizes the picture: drawing buffers, post passes and the camera aspect all follow the canvas's
+  // size on screen (CSS 100 % of the fixed #app box). Checked every frame, so rotation, browser bars and full screen
+  // need no event listeners. (innerWidth / innerHeight are not used: on phones they can disagree with the screen.)
   resize() {
-    const [w, h] = viewSize(this.renderer.domElement);
-    if (w === this._w && h === this._h) return;
-    this._w = w; this._h = h;
-    this.renderer.setSize(w, h, false);
-    this.composer.setSize(w, h);
-    this.gtao?.setSize(w, h);
-    this.grade.uniforms.uAspect.value = w / h;
-    if (this.camera) { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
+    const c = this.renderer.domElement, w = c.clientWidth, h = c.clientHeight;
+    if (!w || !h) return;
+    const pr = Math.min(window.devicePixelRatio || 1, prCap(this.q)) * this.dynScale;
+    if (w !== this._w || h !== this._h || pr !== this._pr) {
+      this._w = w; this._h = h; this._pr = pr;
+      this.renderer.setPixelRatio(pr);
+      this.renderer.setSize(w, h, false);
+      this.composer.setPixelRatio(pr);
+      this.composer.setSize(w, h);
+      this.gtao?.setSize(w, h);
+      this.grade.uniforms.uAspect.value = w / h;
+    }
+    const cam = this.camera;
+    if (cam && cam.aspect !== w / h) { cam.aspect = w / h; cam.updateProjectionMatrix(); }
   }
 
   // Compile every post pass once at boot, including the ones that normally sit idle (screen-FX, the separate output

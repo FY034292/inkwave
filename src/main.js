@@ -77,7 +77,7 @@ class Game {
     this.R = new Renderer(app, this.settings);
     G.renderer = this.R.renderer;
     const scene = (G.scene = new THREE.Scene());
-    const camera = (G.camera = new THREE.PerspectiveCamera(this.settings.fov, innerWidth / innerHeight, 0.15, 6500));
+    const camera = (G.camera = new THREE.PerspectiveCamera(this.settings.fov, 1, 0.15, 6500));
     camera.position.set(0, 40, -60);
     this.R.setScene(scene, camera);
     this.input = G.input = new Input(this.R.renderer.domElement);
