@@ -23,6 +23,9 @@ import { CameraRig } from './game/cameraRig.js';
 import { Match } from './game/match.js';
 import { Showcase } from './game/showcase.js';
 import { installPrompt } from './ui/installPrompt.js';
+import { NetClient, normalizeCode } from './net/net.js';
+import { NetSync } from './net/sync.js';
+import { startPayload } from './net/lobby.js';
 
 const params = new URLSearchParams(location.search);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -60,6 +63,13 @@ class Game {
     saveJSON('inkwave.settings', this.settings);
     this.profile = loadJSON('inkwave.profile', DEFAULT_PROFILE);
     if (this.profile.name === 'プレイヤー') { this.profile.name = 'Player'; saveJSON('inkwave.profile', this.profile); }
+    // friend match: room connection (lobby state) — the match sync (this.sync) exists while an online round runs
+    this.net = new NetClient();
+    this.sync = null;
+    this.net.on('start', (p) => this._startOnline(p));
+    this.net.on('close', (e) => this._netLost(e));
+    this.net.on('room', () => this._netChanged());
+    this.net.on('error', (e) => this._netChanged(e));
     const app = document.getElementById('app');
     this.uiRoot = document.getElementById('ui-root');
     this.fadeEl = document.getElementById('fade');
@@ -153,7 +163,10 @@ class Game {
     G.fx.onDropletLand = (point, normal, color, size) => {
       const team = this._teamOfColor(color);
       if (team < 0) return;
+      // cosmetic droplets: every machine paints its own (never sent to the room)
+      if (G.net) G.net.recordOff++;
       G.paint.splat(this._tmpV.copy(point).addScaledVector(normal, 0.05), clamp(size * 2.4, 0.12, 0.45), team, { seed: Math.random() });
+      if (G.net) G.net.recordOff--;
     };
     this._tmpV = new THREE.Vector3(); this._tmpC = new THREE.Color();
     this.rig = new CameraRig(camera);
@@ -184,6 +197,9 @@ class Game {
     this.menus?.show(params.has('skipTitle') ? 'main' : 'title');
     this._applyAudioVolumes();
     requestAnimationFrame(() => this._loop());
+    // shared invite link (?room=CODE): straight to the friend-match screen with the code filled in
+    const inviteCode = normalizeCode(params.get('room'));
+    if (inviteCode && this.menus) this.menus.show('friend', { code: inviteCode });
     if (params.has('autostart')) this.api.startMatch({ mapId: map.id, difficulty: this.settings.difficulty, duration: +params.get('autostart') || this.settings.matchLength });
     this.bootMs = Math.round(performance.now() - t0);
     window.__inkwave = this; // debug/audit hook
@@ -328,20 +344,31 @@ class Game {
         const p = self.profile;
         return { ...p, played: p.matches, xpToNext: PROGRESSION.xpForLevel(p.level) };
       },
-      setProfileName: (n) => { self.profile.name = String(n || 'Player').slice(0, 16); saveJSON('inkwave.profile', self.profile); },
+      setProfileName: (n) => { self.profile.name = String(n || 'Player').slice(0, 16); saveJSON('inkwave.profile', self.profile); if (self.net.connected) self.net.set({ name: self.profile.name }); },
       // locker look ({ hair, skin, outfit, eyes, hat, brows, … } — indices into character-style.js tables)
-      setProfileStyle: (st) => { self.profile.style = { ...(st || {}) }; saveJSON('inkwave.profile', self.profile); },
+      setProfileStyle: (st) => { self.profile.style = { ...(st || {}) }; saveJSON('inkwave.profile', self.profile); if (self.net.connected) self.net.set({ style: self.profile.style }); },
       getLoadout: () => ({ weapon: self.profile.weapon || 'shooter' }),
       setLoadout: ({ weapon }) => {
         if (!WEAPONS[weapon]) return;
         self.profile.weapon = weapon; saveJSON('inkwave.profile', self.profile);
         if (self.menus?.current === 'loadout') self.showcase.showLoadout(weapon, G.teamColors[0], self.profile.style);
+        if (self.net.connected) self.net.set({ weapon });
       },
       startMatch: (o) => self.startMatch(o),
       resumeMatch: () => self.resume(),
-      quitMatch: () => self.quitToMenu(),
-      rematch: () => self.startMatch(self.lastMatchOpts || {}),
-      toMainMenu: () => self.quitToMenu(),
+      quitMatch: () => { if (self.sync) self.netLeave(); self.quitToMenu(); },
+      // online: "rematch" = back to the room's lobby (the host starts the next round from there)
+      rematch: () => (self.net.connected ? self.quitToMenu('lobby') : self.startMatch(self.lastMatchOpts || {})),
+      toMainMenu: () => { if (self.net.connected) self.netLeave(); self.quitToMenu(); },
+      // ---- friend match (menus.js 'friend' / 'lobby' screens)
+      netState: () => self._netState(),
+      onNet: (fn) => { (self._netListeners || (self._netListeners = new Set())).add(fn); return () => self._netListeners.delete(fn); },
+      netCreate: () => self.netCreate(),
+      netJoin: (code) => self.netJoin(code),
+      netLeave: () => self.netLeave(),
+      netSetTeam: (team) => self.net.set({ team }),
+      netConfig: (cfg) => self.net.config(cfg),
+      netStart: () => self.netStart(),
       onScreenChange: (s) => self._onScreen(s),
       playSound: (n) => { G.audio?.init?.(); G.audio?.play(n); },
     });
@@ -373,7 +400,7 @@ class Game {
     if (s === 'loadout') this.showcase.showLoadout(this.profile.weapon || 'shooter', G.teamColors[0], this.profile.style);
     else if (s !== 'results') { if (this.showcase.mode === 'loadout') this.showcase.hide(); }
     if (G.mode === 'menu') {
-      if (s === 'title' || s === 'main' || s === 'setup' || s === 'settings' || s === 'howto' || s === 'loadout' || s === 'locker') {
+      if (s === 'title' || s === 'main' || s === 'setup' || s === 'settings' || s === 'howto' || s === 'loadout' || s === 'locker' || s === 'friend' || s === 'lobby') {
         if (this._musicTrack !== (s === 'title' ? 'title' : 'menu')) this._playMusic(s === 'title' ? 'title' : 'menu');
       }
     }
@@ -586,19 +613,7 @@ class Game {
     G.music?.stop?.(0.3); this._musicTrack = null;
     this.showcase.hide();
     if (this.match) this.match.dispose();
-    G.projectiles.clear(); G.fx.clear?.(); G.paint.clear();
-    const map = MAPS.find((m) => m.id === opts.mapId) || MAPS[0];
-    if ((map.layout || map.id) !== this.layoutId) await this._buildWorld(map);
-    const theme = mapTheme(map, opts.time);
-    this.time = opts.time === 'dusk' ? 'dusk' : 'day';
-    if (theme !== this.theme) {
-      this.theme = theme;
-      G.env.setTheme?.(theme);
-      if (G.env.envMap) G.scene.environment = G.env.envMap;
-      G.fx.setLighting?.(G.env.getSkyColors?.());
-    }
-    this._applyNight();   // after any stage rebuild too (new prop kit / decor)
-    this.mapDef = map;
+    await this._prepareStage(opts.mapId, opts.time);
     this._setPalette(this._pickPalette());
     const m = (this.match = G.match = new Match({
       attract: false, duration: opts.duration, difficulty: opts.difficulty, weapon: this.profile.weapon || 'shooter',
@@ -614,15 +629,134 @@ class Game {
     this._fade(0, 500);
   }
 
+  // clear the last round and put up the stage (rebuilding the level when the layout changes) at its time of day
+  async _prepareStage(mapId, time) {
+    G.projectiles.clear(); G.fx.clear?.(); G.paint.clear();
+    const map = MAPS.find((m) => m.id === mapId) || MAPS[0];
+    if ((map.layout || map.id) !== this.layoutId) await this._buildWorld(map);
+    const theme = mapTheme(map, time);
+    this.time = time === 'dusk' ? 'dusk' : 'day';
+    if (theme !== this.theme) {
+      this.theme = theme;
+      G.env.setTheme?.(theme);
+      if (G.env.envMap) G.scene.environment = G.env.envMap;
+      G.fx.setLighting?.(G.env.getSkyColors?.());
+    }
+    this._applyNight();   // after any stage rebuild too (new prop kit / decor)
+    this.mapDef = map;
+  }
+
+  // ---------------------------------------------------------------------------------------- friend match
+  _netState() {
+    const n = this.net, room = n.room;
+    return {
+      server: !!n.server, connected: n.connected, busy: !!this._netBusy, myId: n.myId, isHost: n.isHost,
+      code: room ? room.code : '', phase: room ? room.phase : '', config: room ? room.config : null,
+      members: room ? room.members.map((m) => ({ ...m, isSelf: m.id === n.myId, isHost: m.id === room.host })) : [],
+      inMatch: !!this.sync,
+    };
+  }
+  _netChanged(err) {
+    for (const fn of this._netListeners || []) { try { fn(this._netState(), err || null); } catch (e) { console.error('[net] listener', e); } }
+  }
+  async _netDo(job) {
+    this._netBusy = true; this._netChanged();
+    try { await job(); return null; }
+    catch (e) { console.warn('[net]', e.message); return e; }
+    finally { this._netBusy = false; this._netChanged(); }
+  }
+  _joinOpts() { return { name: this.profile.name || 'Player', weapon: this.profile.weapon || 'shooter', style: this.profile.style || null }; }
+  /** new room → joined as its host. Resolves to an Error (with .message for the player) or null. */
+  netCreate() { return this._netDo(async () => { const code = await this.net.create(); await this.net.join(code, this._joinOpts()); }); }
+  netJoin(code) { return this._netDo(() => this.net.join(normalizeCode(code), this._joinOpts())); }
+  netLeave() { this.sync?.detach(); this.sync = null; this.net.leave(); this._netChanged(); }
+  netStart() {
+    const room = this.net.room;
+    if (!this.net.isHost || !room || room.phase !== 'lobby') return;
+    this.net.start(startPayload(room));
+  }
+
+  // every machine in the room gets the host's start payload: build the same stage and the same six squidkids, tell
+  // the host we're ready, and wait for its go
+  async _startOnline(P) {
+    if (!this.net.connected || !P || !Array.isArray(P.roster)) return;
+    const token = (this._onlineToken = (this._onlineToken || 0) + 1);
+    G.audio?.init?.();
+    this.input.exitLock();
+    this.menus?.show(null);
+    await this._fade(1, 350);
+    if (token !== this._onlineToken || !this.net.connected) return;
+    G.music?.stop?.(0.3); this._musicTrack = null;
+    this.showcase.hide();
+    this.hud?.hideSplatted?.();
+    this.sync?.detach();
+    if (this.match) this.match.dispose();
+    const sync = (this.sync = new NetSync(this, this.net, P));
+    this._netWait('ステージを準備中…');
+    await this._prepareStage(P.mapId, P.time);
+    if (token !== this._onlineToken || this.sync !== sync) return;
+    this._setPalette(this.settings.colorblind ? COLORBLIND_PALETTE : TEAM_PALETTES[P.palette] || TEAM_PALETTES[0]);
+    this.lastMatchOpts = null;
+    const m = (this.match = G.match = new Match({
+      attract: false, duration: P.duration || MATCH.defaultDuration, difficulty: BOT_DIFFICULTY, roster: P.roster, net: sync,
+      CharacterClass: this.CharacterClass, rig: this.rig, input: this.input, autopilot: params.has('autopilot'),
+    }));
+    m.setup();
+    sync.attach(m);
+    this._dyn = null;
+    G.mode = 'match';
+    this.hud?.setVisible(false);
+    this.hudPrompt = null; this._hintT = 0; this._hints = {};
+    this.rig.overview?.();
+    this._netWait('ほかのプレイヤーを待っています…');
+    sync.markReady();
+  }
+  // the host said go (sync.js) — the round's intro starts on every machine
+  _netGo() {
+    this._netWait(null);
+    this._relock = true;                       // no click started this round here: the next click takes the mouse
+    if (this.input.touch.active || document.pointerLockElement) this._relock = false;
+    this._fade(0, 500);
+  }
+  _netWait(text) {
+    const el = this.fadeEl;
+    if (!el) return;
+    let w = el.querySelector('.iw-netwait');
+    if (!text) { w?.remove(); return; }
+    if (!w) { w = document.createElement('div'); w.className = 'iw-netwait'; el.appendChild(w); }
+    w.textContent = text;
+  }
+  // the round can't go on (the host left): back to the room's lobby
+  async _netAbort(msg, newHost) {
+    this.sync?.detach(); this.sync = null;
+    if (this.net.connected && newHost === this.net.myId) this.net.end();   // the new host re-opens the room
+    this._netWait(null);
+    await this.quitToMenu('lobby');
+    this.menus?.notice?.('対戦終了', msg);
+  }
+  // the connection to the room dropped
+  async _netLost(err) {
+    const inMatch = !!this.sync;
+    this.sync?.detach(); this.sync = null;
+    this._netWait(null);
+    this._netChanged();
+    if (inMatch || G.mode === 'match') await this.quitToMenu('main');
+    else if (this.menus && (this.menus.current === 'lobby' || this.menus.current === 'friend')) this.menus.show('friend', { back: true });
+    this.menus?.notice?.('接続が切れました', err?.message || 'サーバーとの接続が切れました。');
+  }
+
   _intro() {
-    const L = G.level, pad = L.spawnPads[0];
     const local = this.match.local;
+    // (friend match: the player may be on team 1 — the shot is the same one turned 180°, like the stage itself)
+    const team = local ? local.team : 0, k = team === 1 ? -1 : 1;
+    const L = G.level, pad = L.spawnPads[team];
     // sweep from high over the enemy base down behind the player (a stage can open on its own hero shot instead)
     const I = L.layout?.intro;
-    const from = I ? new THREE.Vector3(...I.from) : new THREE.Vector3(18, 26, 30), to = new THREE.Vector3(pad.x, pad.y + 2.6, pad.z - (I?.toBack ?? 5.2));
-    const lookFrom = I ? new THREE.Vector3(...I.lookFrom) : new THREE.Vector3(0, 0, 10), lookTo = new THREE.Vector3(pad.x, pad.y + 1.6, pad.z + 6);
+    const f0 = I ? I.from : [18, 26, 30], l0 = I ? I.lookFrom : [0, 0, 10];
+    const from = new THREE.Vector3(f0[0] * k, f0[1], f0[2] * k), to = new THREE.Vector3(pad.x, pad.y + 2.6, pad.z - k * (I?.toBack ?? 5.2));
+    const lookFrom = new THREE.Vector3(l0[0] * k, l0[1], l0[2] * k), lookTo = new THREE.Vector3(pad.x, pad.y + 1.6, pad.z + 6 * k);
     this.rig.cinematic(from, to, lookFrom, lookTo, 3.6, () => {});
-    this.rig.yaw = 0; this.rig.pitch = -0.12;
+    this.rig.yaw = team === 1 ? Math.PI : 0; this.rig.pitch = -0.12;
     G.audio?.play('ready');
     setTimeout(() => { if (this.match?.state === 'intro') this.hud?.banner('ready'); }, 1700);
     setTimeout(() => { if (this.match?.state === 'intro') this.hud?.setVisible(true); }, 3000);
@@ -630,9 +764,16 @@ class Game {
   }
 
   pause() {
-    if (!this.match || this.match.attract || this.match.paused) return;
+    if (!this.match || this.match.attract || this.match.paused || this.match.menuOpen) return;
     // only a live round (or its intro) can pause — never on top of time's up / judge / results
     if (this.match.state !== 'playing' && this.match.state !== 'intro') return;
+    if (this.sync) {
+      // friend match: the round can't stop for one player — the menu opens over the running match
+      this.match.menuOpen = true;
+      this.input.exitLock();
+      this.menus?.show('pause');
+      return;
+    }
     this.match.paused = true;
     this.input.exitLock();
     this.menus?.show('pause');
@@ -642,10 +783,12 @@ class Game {
     if (!this.match) return;
     this.menus?.show(null);
     this.match.paused = false;
+    this.match.menuOpen = false;
     this.input.requestLock();
     G.audio?.duck?.(1, 0.01);
   }
-  async quitToMenu() {
+  async quitToMenu(screen = 'main') {
+    this.sync?.detach(); this.sync = null;
     this.input.exitLock();
     this.menus?.show(null);
     await this._fade(1, 350);
@@ -655,7 +798,7 @@ class Game {
     G.mode = 'menu';
     this._setPalette(this._pickPalette());
     this._startAttract();
-    this.menus?.show('main');
+    this.menus?.show(screen === 'lobby' && this.net.connected ? 'lobby' : 'main');
     this._playMusic('menu');
     G.audio?.duck?.(1, 0.01);
     this._fade(0, 500);
@@ -669,8 +812,11 @@ class Game {
     const cov = m.result.coverage;
     const judgeP = this.hud?.judge({ colors: [G.teamHex[0], G.teamHex[1]], percents: [cov[0] * 100, cov[1] * 100], names: this.palette.names || TEAM_NAMES });
     await (judgeP || new Promise((r) => setTimeout(r, 4000)));
-    const won = m.result.winner === 0;
+    const myTeam = m.local ? m.local.team : 0;
+    const won = m.result.winner === myTeam;
     m.setState('results');
+    // friend match: the room is open again (the host starts the next round from the lobby)
+    if (this.sync?.isHost) this.net.end();
     this.hud?.setVisible(false);
     // profile / XP
     const local = m.local;
@@ -688,8 +834,8 @@ class Game {
       mapName: this.mapDef.name,
     };
     // your team on the podium
-    const team = m.actors.filter((a) => a.team === 0);
-    this.showcase.showResults(0, won, G.teamColors[0], team.map((a) => ({ weapon: a.weaponId, style: a.character.style || { hair: a.slot % 4, skin: (a.slot * 3) % 4 }, name: a.name })));
+    const team = m.actors.filter((a) => a.team === myTeam);
+    this.showcase.showResults(myTeam, won, G.teamColors[myTeam], team.map((a) => ({ weapon: a.weaponId, style: a.character.style || { hair: a.slot % 4, skin: (a.slot * 3) % 4 }, name: a.name })));
     this.menus?.showResults(data);
     this.menus?.show('results');
     G.audio?.play(won ? 'victory_fanfare' : 'defeat_jingle');
@@ -743,12 +889,14 @@ class Game {
     G.time += dt;
     const m = this.match;
     if (m) {
+      this.sync?.preUpdate(dt);
       m.updateController(dt);
       const sub = dt > 1 / 35 ? 2 : 1; // keep collision substeps for genuinely slow frames
       // character animation runs once per rendered frame (on the last substep, with the frame's full dt)
       for (let i = 0; i < sub; i++) { G.animStep = i === sub - 1; m.update(dt / sub); }
       G.animStep = true;
       if (!m.paused) G.projectiles.update(dt);
+      this.sync?.postUpdate(dt);
       if (m.attract) this._updateAttract(dt);
       else if (m.state === 'playing' && m.local?.alive && this.rig.mode !== 'follow' && this.rig.mode !== 'path') this.rig.follow(m.local, true);
     }
@@ -919,7 +1067,7 @@ class Game {
     }
     const frame = {
       time: m.time,
-      teams: m.teamSummary(),
+      teams: a.team === 1 ? m.teamSummary().reverse() : m.teamSummary(),   // the HUD draws its own team first
       ink: a.ink / PLAYER.inkMax, inkLow: a.ink < 18 || (this._lowInkFlash > 0), subCost: SUB.bomb.inkCost / PLAYER.inkMax,
       special: a.specialFrac(), specialReady: a.specialReady(), specialActive: !!a.specialActive,
       hp: a.hp / PLAYER.hp,

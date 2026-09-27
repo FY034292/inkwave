@@ -187,6 +187,17 @@ export const MATCH = {
   pointsPerM2: 1.0,          // turf points per square metre newly inked
 };
 
+// ---- Friend match (online) ----
+// server: URL of the room relay (server/ → `npx wrangler deploy` prints it, e.g. https://inkwave-rooms.<you>.workers.dev).
+// Empty = only a local `wrangler dev` on :8787 is used (see net/net.js resolveServer); ?server=… overrides it.
+export const NET = {
+  server: '',
+  codeLength: 5,
+  sendRate: 20,              // match frames per second each player sends
+  interpDelay: 0.11,         // s: remote players are drawn this far in the past (smooths network jitter)
+  readyTimeout: 20,          // s the host waits for everyone to finish loading the stage
+};
+
 // CPU opponents always play at BOT_DIFFICULTY (the difficulty picker was removed).
 export const BOT_DIFFICULTY = 'easy';
 export const DIFFICULTY = {

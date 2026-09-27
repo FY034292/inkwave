@@ -121,7 +121,8 @@ The WebGL scene keeps rendering behind menus (the lobby/attract mode), so menu s
 ```js
 import { Menus } from './menus.js';
 const menus = new Menus(rootEl, api);
-menus.show(screen)        // 'loading' | 'title' | 'main' | 'loadout' | 'setup' | 'settings' | 'howto' | 'pause' | 'results' | null
+menus.show(screen)        // 'loading' | 'title' | 'main' | 'loadout' | 'setup' | 'settings' | 'howto' | 'pause' | 'results' | 'friend' | 'lobby' | null
+menus.notice(title, text) // message box over the current screen
 menus.current             // current screen name or null
 menus.setLoading(p, label)
 menus.showResults(ResultsData)   // then show('results')
@@ -131,6 +132,8 @@ menus.handleKey(e)        // keyboard navigation
 `api` (provided by core): `getSettings() setSettings(partial) getProfile() setProfileName(n) getLoadout() setLoadout({weapon})
 weapons (WEAPONS) weaponOrder specials (SPECIALS) sub (SUB.bomb) maps (MAPS) difficulties (DIFFICULTY)
 startMatch({ mapId, difficulty, duration }) resumeMatch() quitMatch() rematch() toMainMenu() onScreenChange(screen) playSound(name) version`.
+Friend match: `netState() onNet(fn) netCreate() netJoin(code) netLeave() netSetTeam(team) netConfig({ mapId, time }) netStart()`
+(`netCreate`/`netJoin` resolve to an Error with a player-facing message, or null).
 
 ```js
 import { HUD } from './hud.js';

@@ -32,6 +32,8 @@ Keep pull requests focused. If you change gameplay tuning, say what you measured
 | `src/fx` | particles, screen effects, event → effect wiring |
 | `src/ui` | menus, HUD, map diorama, icons |
 | `src/audio` | procedural sound effects and music |
+| `src/net` | friend match: room connection, lobby roster, match sync |
+| `server` | friend-match relay (Cloudflare Worker + Durable Objects) |
 | `docs` | event contract, module contracts, character rig reference |
 | `tools` | dev server, labs, headless capture and measurement scripts, release |
 

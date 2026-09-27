@@ -29,6 +29,7 @@
 ## Features
 
 - **Turf war, 4 v 4.** Three minutes, most ground painted wins. Play against bots on three difficulty levels.
+- **Friend match.** Create a room, send the 5-letter code (or the invite link), and play with up to five friends. Pick your team in the lobby; CPUs fill the empty slots. See [Friend match server](#friend-match-server).
 - **Squid form.** Hold to dive into your ink: swim fast, refill your tank, climb inked walls, dolphin-jump water gaps.
 - **Seven weapons**, each with its own feel: Spritzer (shooter), Swell Roller, Glint Charger, Popper Blaster, Twinfin Dualies (dodge roll), Tidebucket Slosher and Gyre Splatling. Every kit comes with Splat Bombs and a special.
 - **Three stages, day or dusk.** Tidewater Plaza, Kelpline Terminal and Halyard Marina, a working marina with a car ferry moored across the middle where the water gaps are the whole point.
@@ -76,6 +77,19 @@ npm run check    # syntax-check every module
 npm run smoke    # boot + 8 s of autopilot in headless Chrome, fails on console errors
 npm run build    # assemble dist/ (game + only the three.js addons it imports)
 ```
+
+## Friend match server
+
+Friend matches go through a tiny relay: a Cloudflare Worker with one Durable Object per room ([`server/`](server/src/index.js)). It only keeps the lobby and forwards match traffic; the game itself still runs in each browser.
+
+```bash
+npm run server           # local relay on :8787 (the game on localhost / your LAN finds it automatically)
+npm run release:server   # deploy to your Cloudflare account (needs a one-time `npx wrangler login`)
+```
+
+After deploying, put the printed URL in `src/config.js` → `NET.server` (for example `https://inkwave-rooms.<you>.workers.dev`) and release the game. `?server=<url>` overrides it for testing. SQLite-backed Durable Objects run on the Workers free plan.
+
+How a match stays in step: every player simulates their own squidkid and sends its state 20 times a second along with what it did (rounds fired, every splat painted, animation one-shots, splats and respawns). Other machines draw it about 110 ms in the past and replay its events on that timeline, so shots leave the gun when the gun is seen there and their paint lands with them. Hits are decided by the shooter and applied by the victim's owner. The host also runs the CPUs, the clock and the final judge. If a player leaves, the host's CPU takes over their squidkid. If the host leaves, the round ends and the next player becomes host. See [`src/net/sync.js`](src/net/sync.js).
 
 ## How it works
 

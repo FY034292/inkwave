@@ -14,7 +14,7 @@ import {
 } from './ui-icons.js';
 import {
   GAME_TITLE, GAME_SUBTITLE, VERSION, WEAPONS, WEAPON_ORDER, SPECIALS, SUB, MAPS, DIFFICULTY, MATCH, QUALITY, BOT_DIFFICULTY,
-  DEFAULT_SETTINGS, TEAM_PALETTES, COLORBLIND_PALETTE, PROGRESSION, BOT_NAMES, TEAM_NAMES,
+  DEFAULT_SETTINGS, TEAM_PALETTES, COLORBLIND_PALETTE, PROGRESSION, BOT_NAMES, TEAM_NAMES, NET,
 } from '../config.js';
 import * as LOOK from '../game/character-style.js';
 import { G } from '../core/ctx.js';
@@ -23,14 +23,15 @@ import {
   sweepEdge, sweepClip, splatClip, splatCover, skinSwatch, irisSwatch, outfitIcon,
 } from './menu-art.js';
 
-const SCREENS = ['loading', 'title', 'main', 'loadout', 'setup', 'locker', 'settings', 'howto', 'pause', 'results'];
+const SCREENS = ['loading', 'title', 'main', 'loadout', 'setup', 'locker', 'settings', 'howto', 'pause', 'results', 'friend', 'lobby'];
 // Transitions that get the full-screen ink wipe (the rest use staggered pop-ins).
 const WIPES = new Set(['loading>title', 'title>main', 'results>main', 'pause>main', 'results>null', 'pause>title']);
 // Pushes/pops between these get the light ink swipe (decorative — the swap itself is immediate).
-const LIGHT = new Set(['main', 'loadout', 'setup', 'locker', 'settings', 'howto', 'pause']);
+const LIGHT = new Set(['main', 'loadout', 'setup', 'locker', 'settings', 'howto', 'pause', 'friend', 'lobby']);
 // Stage art rendered from the real game by tools/stage-shots.mjs: <id>-<day|dusk>[-sm].webp (resolved against this
 // module so the UI lab in tools/ finds them too). Missing art falls back to the layout thumbnail.
 const STAGE_DIR = new URL('../../assets/stages/', import.meta.url).href;
+const ROOM_CODE_LEN = NET.codeLength;
 const stageArt = (id, time, small) => `${STAGE_DIR}${id}-${time === 'dusk' ? 'dusk' : 'day'}${small ? '-sm' : ''}.webp`;
 const TIME_INFO = {
   day: { label: '昼', text: '明るい日差しとくっきりした影。' },
@@ -66,6 +67,7 @@ const LOCKER_TABS = [
 ];
 const MENU_DESC = {
   play: 'ステージと時間帯を選んで3対3のナワバリバトルへ',
+  friend: 'ルームを作って、フレンドと最大6人でナワバリバトル',
   loadout: 'ブキの性能、サブ、スペシャルを確認して選ぼう',
   locker: '髪型、帽子、目、肌、服を自分好みにしよう',
   settings: '操作、映像、音声、ゲーム設定',
@@ -188,6 +190,14 @@ export class Menus {
   showResults(data) {
     this._results = data || null;
     this._resultsDirty = true;
+  }
+
+  /** A message box over the current screen (friend match: connection lost, the host left…). */
+  notice(title, text) {
+    setTimeout(() => {
+      if (!this._scr || this._modal) return;
+      this._openModal({ title, text, buttons: [{ label: 'OK', sound: 'ui_click', accept: () => this._closeModal() }] });
+    }, 60);
   }
 
   update(dt) {
@@ -375,7 +385,7 @@ export class Menus {
     if (this._stack.length > 1) {
       this._sfx('ui_back');
       this.show(this._stack[this._stack.length - 2], { pop: true, back: true });
-    } else if (['loadout', 'setup', 'locker', 'settings', 'howto'].includes(this.current)) {
+    } else if (['loadout', 'setup', 'locker', 'settings', 'howto', 'friend'].includes(this.current)) {
       this._sfx('ui_back'); // opened directly by the engine: fall back to the main menu
       this.show('main', { back: true });
     }
@@ -699,6 +709,7 @@ export class Menus {
     const sub = this._sub();
     const items = [
       { id: 'play', label: 'プレイ', sub: 'ナワバリバトル · 3対3', icon: GLYPHS.play, cls: 'iw-btn--menu iw-btn--xl iw-btn--primary', accept: () => this._go('setup'), sound: 'ui_confirm' },
+      { id: 'friend', label: 'フレンド対戦', icon: GLYPHS.users, cls: 'iw-btn--menu', accept: () => this._go(this._netState().connected ? 'lobby' : 'friend') },
       { id: 'loadout', label: 'ブキ', icon: weaponIcon(W.kind || lo.weapon), cls: 'iw-btn--menu', accept: () => this._go('loadout') },
       { id: 'locker', label: 'ロッカー', icon: GLYPHS.hanger, cls: 'iw-btn--menu', accept: () => this._go('locker') },
       { id: 'settings', label: '設定', icon: GLYPHS.gear, cls: 'iw-btn--menu', accept: () => this._go('settings') },
@@ -1874,6 +1885,264 @@ export class Menus {
     return { el };
   }
 
+  // ================================================================ SCREEN: friend match (create / join a room)
+  _netState() {
+    try { return (this.api.netState && this.api.netState()) || {}; } catch (e) { return {}; }
+  }
+
+  _scr_friend(opts = {}) {
+    const api = this.api;
+    const norm = (v) => String(v || '').toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, ROOM_CODE_LEN);
+    const input = h('input', {
+      class: 'iw-name__input iw-room__input', type: 'text', maxlength: String(ROOM_CODE_LEN), spellcheck: 'false', autocomplete: 'off',
+      autocapitalize: 'characters', enterkeyhint: 'go', placeholder: '・・・・・', value: norm(opts.code),
+    });
+    const codeRow = h('div', { class: 'iw-name iw-room__code iw-in' },
+      h('span', { class: 'iw-name__label' }, 'コード'),
+      h('span', { class: 'iw-name__field' }, input, h('i', { class: 'iw-name__pen', html: GLYPHS.pencil })));
+    input.addEventListener('input', () => { const v = norm(input.value); if (v !== input.value) input.value = v; });
+    input.addEventListener('focus', () => codeRow.classList.add('is-editing'));
+    input.addEventListener('blur', () => codeRow.classList.remove('is-editing'));
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter' || e.key === 'NumpadEnter') { e.preventDefault(); input.blur(); doJoin(); }
+      else if (e.key === 'Escape') { e.preventDefault(); input.blur(); }
+    });
+    this._bind(codeRow, { id: 'code', accept: () => { this._sfx('ui_click'); input.focus(); } });
+
+    const status = h('div', { class: 'iw-room__status iw-in' });
+    const setStatus = (text, kind = '') => {
+      status.textContent = text || '';
+      status.className = 'iw-room__status' + (kind ? ' is-' + kind : '');
+      if (kind === 'error') restartAnim(status, 'is-shake');
+    };
+    let busy = false;
+    const run = async (label, job) => {
+      if (busy) return;
+      busy = true; el.classList.add('is-busy'); setStatus(label, 'busy');
+      const err = await job();
+      busy = false; el.classList.remove('is-busy');
+      if (this.current !== 'friend') return;
+      if (err) { this._sfx('ui_error'); setStatus(err.message, 'error'); return; }
+      setStatus('');
+      this._sfx('ui_confirm');
+      this.show('lobby', { push: true });
+    };
+    const doCreate = () => run('ルームを作成しています…', () => api.netCreate());
+    const doJoin = () => {
+      const code = norm(input.value);
+      if (code.length !== ROOM_CODE_LEN) { this._sfx('ui_error'); setStatus(`ルームコード（${ROOM_CODE_LEN}文字）を入力してください。`, 'error'); restartAnim(codeRow, 'is-shake'); return; }
+      run(`ルーム ${code} に参加しています…`, () => api.netJoin(code));
+    };
+    const create = this._btn({ id: 'create', label: 'ルームを作る', sub: 'コードを送ってフレンドを招待', icon: GLYPHS.users, cls: 'iw-btn--menu iw-btn--primary iw-in iw-in--left', sound: 'ui_confirm', accept: doCreate });
+    const join = this._btn({ id: 'join', label: '参加する', icon: GLYPHS.next, cls: 'iw-btn--wide iw-in iw-in--left', accept: doJoin });
+    const ns = this._netState();
+    if (!ns.server) {
+      create.disabled = true; join.disabled = true;
+      setStatus('対戦サーバーが設定されていません（src/config.js の NET.server）。', 'error');
+    }
+    const el = h('div', { class: 'iw-screen iw-room' },
+      h('div', { class: 'iw-scrim-full' }),
+      this._header('フレンド対戦', { sub: 'フレンドと最大6人でナワバリバトル · 空いた枠はCPU' }),
+      h('div', { class: 'iw-room__body' },
+        this._panel('iw-room__card iw-in iw-in--pop',
+          h('div', { class: 'iw-seclabel' }, h('i', { html: GLYPHS.flag }), 'ルームを作る'),
+          h('p', { class: 'iw-room__text' }, 'ルームを作るとコードが表示されます。コードか招待リンクをフレンドに送りましょう。'),
+          create),
+        this._panel('iw-room__card iw-in iw-in--pop',
+          h('div', { class: 'iw-seclabel' }, h('i', { html: GLYPHS.users }), 'ルームに参加'),
+          h('p', { class: 'iw-room__text' }, 'フレンドから届いたルームコードを入力してください。'),
+          codeRow, join),
+        status),
+      this._prompts([['Enter', 'A', '決定'], ['Esc', 'B', '戻る']]));
+    return {
+      el, initial: norm(opts.code).length === ROOM_CODE_LEN ? join : create,
+      // an invite link lands here with the code filled in: join straight away
+      afterMount: () => { if (norm(opts.code).length === ROOM_CODE_LEN && ns.server) setTimeout(() => { if (this.current === 'friend') doJoin(); }, 250); },
+    };
+  }
+
+  // ================================================================ SCREEN: friend match lobby (the room)
+  _scr_lobby() {
+    const api = this.api;
+    const maps = this._maps();
+    const N = MATCH.teamSize || 3;
+    const TEAM_LABEL = ['アルファ', 'ブラボー'];
+    let ns = this._netState();
+
+    // ---- room code + invite
+    const codeEl = h('div', { class: 'iw-lobby__codetext iw-display' });
+    const inviteUrl = () => `${location.origin}${location.pathname}?room=${ns.code}`;
+    const flash = h('div', { class: 'iw-room__status' });
+    let flashT = 0;
+    const say = (text, kind = '') => {
+      flash.textContent = text; flash.className = 'iw-room__status' + (kind ? ' is-' + kind : '');
+      if (kind === 'error') restartAnim(flash, 'is-shake');
+      clearTimeout(flashT); flashT = setTimeout(() => { flash.textContent = ''; }, 4200);
+    };
+    const copy = async () => {
+      const url = inviteUrl();
+      try {
+        if (navigator.share && document.documentElement.classList.contains('is-touch')) { await navigator.share({ title: 'INKWAVE フレンド対戦', text: `ルームコード：${ns.code}`, url }); return; }
+        await navigator.clipboard.writeText(url);
+        say('招待リンクをコピーしました！', 'ok');
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        say(`招待リンク：${url}`);
+      }
+    };
+    const copyBtn = this._btn({ id: 'copy', label: '招待リンクをコピー', icon: GLYPHS.users, cls: 'iw-btn--small iw-btn--ghost', accept: copy });
+    const codeCard = this._panel('iw-lobby__code iw-in iw-in--pop',
+      h('div', { class: 'iw-seclabel' }, h('i', { html: GLYPHS.flag }), 'ルームコード'),
+      codeEl, copyBtn);
+
+    // ---- teams (3 slots each; the empty ones are CPUs)
+    const teamsEl = h('div', { class: 'iw-lobby__teams' });
+    const renderTeams = () => {
+      const cols = [0, 1].map((t) => {
+        const ms = ns.members.filter((m) => m.team === t);
+        const mine = ns.members.find((m) => m.isSelf);
+        const slots = Array.from({ length: N }, (_, i) => {
+          const m = ms[i];
+          if (!m) return h('div', { class: 'iw-lslot is-cpu' }, h('span', { class: 'iw-lslot__icon', html: GLYPHS.bot }), h('span', { class: 'iw-lslot__name' }, 'CPU'));
+          const W = this._weapons()[m.weapon] || {};
+          return h('div', { class: 'iw-lslot' + (m.isSelf ? ' is-self' : '') },
+            h('span', { class: 'iw-lslot__icon', html: weaponIcon(W.kind || m.weapon) }),
+            h('span', { class: 'iw-lslot__name' }, m.name),
+            m.isHost ? h('em', { class: 'iw-lslot__tag is-host', title: 'ホスト' }, h('i', { html: GLYPHS.crown })) : null,
+            m.isSelf ? h('em', { class: 'iw-lslot__tag' }, 'あなた') : null);
+        });
+        const full = ms.length >= N, here = mine && mine.team === t;
+        const btn = this._btn({
+          id: 'team-' + t, label: here ? '参加中' : full ? '満員' : 'このチームに入る', icon: here ? GLYPHS.check : GLYPHS.next, cls: 'iw-btn--small iw-lteam__join',
+          accept: () => { if (!here && !full) { api.netSetTeam && api.netSetTeam(t); } else this._sfx('ui_error'); },
+        });
+        if (here || full || ns.phase !== 'lobby') btn.disabled = true;
+        return h('div', { class: `iw-lteam iw-lteam--${t ? 'b' : 'a'}` },
+          h('div', { class: 'iw-lteam__head' }, h('i', { class: 'iw-lteam__dot' }), h('b', null, TEAM_LABEL[t]), h('span', null, `${ms.length} / ${N}`)),
+          h('div', { class: 'iw-lteam__slots' }, slots),
+          btn);
+      });
+      teamsEl.replaceChildren(...cols);
+    };
+
+    // ---- stage (the host picks; everyone sees it)
+    const stageName = h('b');
+    const stageTime = h('span', { class: 'iw-lstage__time' });
+    const stageArtEl = h('span', { class: 'iw-lstage__art' });
+    const curMap = () => maps.find((m) => m.id === (ns.config && ns.config.mapId)) || maps[0];
+    const curTime = () => (ns.config && ns.config.time === 'dusk' ? 'dusk' : 'day');
+    const setStage = (d) => {
+      if (!ns.isHost) return;
+      const i = (maps.indexOf(curMap()) + d + maps.length) % maps.length;
+      this._sfx('ui_toggle');
+      api.netConfig && api.netConfig({ mapId: maps[i].id, time: curTime() });
+    };
+    const stageBtn = h('button', { class: 'iw-lstage' },
+      stageArtEl,
+      h('span', { class: 'iw-lstage__text' }, h('small', null, 'ステージ'), stageName, stageTime),
+      h('span', { class: 'iw-lstage__arrows' }, h('i', { html: GLYPHS.back }), h('i', { html: GLYPHS.next })));
+    this._fx(stageBtn);
+    this._bind(stageBtn, { id: 'stage', accept: () => setStage(1), adjust: (d) => setStage(d) });
+    const timeBtn = this._btn({
+      id: 'time', label: '時間帯', icon: GLYPHS.sun, cls: 'iw-btn--small iw-btn--ghost',
+      accept: () => { if (ns.isHost && api.netConfig) { this._sfx('ui_toggle'); api.netConfig({ mapId: curMap().id, time: curTime() === 'day' ? 'dusk' : 'day' }); } },
+    });
+    const renderStage = () => {
+      const m = curMap(), t = curTime();
+      stageName.textContent = m.name;
+      stageTime.textContent = TIME_INFO[t] ? TIME_INFO[t].label : t;
+      const src = stageArt(m.id, t, true);
+      if (stageArtEl.dataset.src !== src) {
+        stageArtEl.dataset.src = src;
+        const im = h('img', { alt: '', draggable: 'false' });
+        im.addEventListener('error', () => { stageArtEl.innerHTML = m.thumb || mapThumb(m, 2); }, { once: true });
+        im.src = src;
+        stageArtEl.replaceChildren(im);
+      }
+      stageBtn.disabled = !ns.isHost; timeBtn.disabled = !ns.isHost;
+      stageBtn.classList.toggle('is-locked', !ns.isHost);
+      timeBtn.querySelector('.iw-btn__label').textContent = t === 'dusk' ? '昼にする' : '夕方にする';
+      timeBtn.querySelector('.iw-btn__icon').innerHTML = t === 'dusk' ? GLYPHS.sun : GLYPHS.moon;
+    };
+
+    // ---- your weapon, start / waiting, leave
+    const lo = this._loadout();
+    const W = this._weapons()[lo.weapon];
+    const weaponChip = h('button', { class: 'iw-wchip' },
+      h('span', { class: 'iw-wchip__icon', html: weaponIcon(W.kind || lo.weapon) }),
+      h('span', { class: 'iw-wchip__text' }, h('small', null, 'ブキ'), h('b', null, W.name)),
+      h('span', { class: 'iw-wchip__edit' }, h('i', { html: GLYPHS.pencil })));
+    this._fx(weaponChip);
+    this._bind(weaponChip, { id: 'weapon', accept: () => { this._sfx('ui_click'); this._go('loadout'); } });
+    const startSub = h('span', { class: 'iw-btn__sub' });
+    const start = this._btn({ id: 'start', label: 'スタート！', icon: GLYPHS.play, cls: 'iw-btn--wide iw-btn--primary iw-lobby__start', sound: 'ui_confirm', accept: () => {
+      if (!ns.isHost || ns.phase !== 'lobby') return;
+      start.disabled = true;
+      api.netStart && api.netStart();
+    } });
+    start.querySelector('.iw-btn__text').appendChild(startSub);
+    const waitEl = h('div', { class: 'iw-lobby__wait' }, h('i', { class: 'iw-lobby__dots' }, h('b'), h('b'), h('b')), h('span'));
+    const confirmLeave = () => this._openModal({
+      title: 'ルームから退出しますか？', text: ns.isHost ? 'ホストが退出すると、次に参加した人がホストになります。' : 'ルームコードがあれば、また参加できます。', danger: true,
+      buttons: [
+        { label: 'ルームに残る', accept: () => this._closeModal(), sound: null },
+        { label: '退出', cls: 'iw-btn--danger', sound: 'ui_back', accept: () => { this._closeModal(true); api.netLeave && api.netLeave(); this.show('main', { back: true }); } },
+      ],
+    });
+    const leave = this._btn({ id: 'leave', label: '退出', icon: GLYPHS.close, cls: 'iw-btn--small iw-btn--ghost iw-btn--danger', accept: confirmLeave });
+    const side = this._panel('iw-lobby__side iw-in iw-in--right',
+      h('div', { class: 'iw-seclabel' }, h('i', { html: GLYPHS.map }), 'ルール · ナワバリバトル 3分'),
+      stageBtn, timeBtn, weaponChip, start, waitEl, h('div', { class: 'iw-lobby__row' }, leave));
+
+    const render = () => {
+      const f = this._focus && this._focus.dataset && this._focus.dataset.id;
+      codeEl.textContent = ns.code || '-----';
+      renderTeams();
+      renderStage();
+      const humans = ns.members.length;
+      startSub.textContent = `${humans}人${humans < N * 2 ? ` + CPU ${N * 2 - humans}人` : ''}`;
+      start.style.display = ns.isHost ? '' : 'none';
+      start.disabled = !ns.isHost || ns.phase !== 'lobby';
+      waitEl.style.display = ns.isHost && ns.phase === 'lobby' ? 'none' : '';
+      waitEl.lastChild.textContent = ns.phase === 'match' ? '対戦中です。終わるまで待ちましょう' : 'ホストがスタートするのを待っています';
+      el.classList.toggle('is-host', !!ns.isHost);
+      // focus survives the rebuild (same data-id), else falls back to a sensible button
+      if (this.current === 'lobby' && !this._modal) {
+        const again = f && el.querySelector(`[data-id="${CSS.escape(f)}"]`);
+        const target = again && !again.disabled ? again : (this._focus && this._focus.isConnected && !this._focus.disabled ? this._focus : (ns.isHost ? start : weaponChip));
+        if (target !== this._focus) this._setFocus(target, { snap: true });
+      }
+    };
+
+    const el = h('div', { class: 'iw-screen iw-lobby' },
+      h('div', { class: 'iw-scrim-full' }),
+      this._header('フレンド対戦', { sub: 'チームを選んで、ホストのスタートを待とう' }),
+      h('div', { class: 'iw-lobby__body' },
+        h('div', { class: 'iw-lobby__main' }, codeCard, h('div', { class: 'iw-in iw-in--up' }, teamsEl), flash),
+        side),
+      this._prompts([['Enter', 'A', '決定'], ['←', null, 'ステージ'], ['Esc', 'B', '退出']]));
+
+    const off = api.onNet ? api.onNet((s, err) => {
+      ns = s;
+      if (err) { this._sfx('ui_error'); say(err.message, 'error'); }
+      if (!s.connected) return;          // main.js takes the player out (connection lost)
+      render();
+    }) : null;
+    // a fresh room: the host puts up the stage last played
+    if (ns.isHost && ns.config && !ns.config.mapId && api.netConfig) {
+      const last = this._settings().lastStage;
+      const m = maps.find((x) => x.id === last) || maps[0];
+      api.netConfig({ mapId: m.id, time: this._stageTime(m.id) });
+    }
+    render();
+    return {
+      el, initial: ns.isHost ? start : weaponChip,
+      onBack: confirmLeave,
+      destroy: () => { off && off(); clearTimeout(flashT); },
+    };
+  }
+
   // ================================================================ SCREEN: pause
   _resume() {
     this._sfx('ui_back');
@@ -1923,7 +2192,8 @@ export class Menus {
       { id: 'settings', label: '設定', icon: GLYPHS.gear, cls: 'iw-btn--menu', accept: () => this._go('settings') },
       { id: 'howto', label: '遊び方', icon: GLYPHS.question, cls: 'iw-btn--menu', accept: () => this._go('howto') },
       { id: 'quit', label: '対戦を終了', icon: GLYPHS.close, cls: 'iw-btn--menu iw-btn--danger', accept: () => this._openModal({
-        title: '対戦を終了しますか？', text: '対戦を中断してメニューに戻ります。今回の塗りは記録されません。', danger: true,
+        title: '対戦を終了しますか？', danger: true,
+        text: this._netState().inMatch ? 'ルームから退出してメニューに戻ります。あなたの代わりにCPUが戦います。' : '対戦を中断してメニューに戻ります。今回の塗りは記録されません。',
         buttons: [
           { label: '対戦を続ける', accept: () => this._closeModal(), sound: null },
           { label: '終了', cls: 'iw-btn--danger', sound: 'ui_confirm', accept: () => {
@@ -2124,10 +2394,11 @@ export class Menus {
       h('div', { class: 'iw-xp__mid' }, h('div', { class: 'iw-xp__row' }, h('span', null, gainEl, lvUp), nextEl), bar,
         bdEls.length ? h('div', { class: 'iw-xp__bd' }, bdEls.map((b) => b.el)) : null));
 
-    const rematch = this._btn({ id: 'rematch', label: 'もう一度対戦', icon: GLYPHS.reset, cls: 'iw-btn--wide iw-btn--primary iw-in iw-in--pop', sound: 'ui_confirm', accept: () => {
+    const online = !!this._netState().connected;   // friend match: back to the room instead of a rematch
+    const rematch = this._btn({ id: 'rematch', label: online ? 'ロビーに戻る' : 'もう一度対戦', icon: online ? GLYPHS.users : GLYPHS.reset, cls: 'iw-btn--wide iw-btn--primary iw-in iw-in--pop', sound: 'ui_confirm', accept: () => {
       safeCall(() => this.api.rematch && this.api.rematch());
     } });
-    const home = this._btn({ id: 'home', label: 'メインメニュー', icon: GLYPHS.back, cls: 'iw-btn--wide iw-in iw-in--pop', sound: 'ui_click', accept: () => {
+    const home = this._btn({ id: 'home', label: online ? 'ルームを出る' : 'メインメニュー', icon: GLYPHS.back, cls: 'iw-btn--wide iw-in iw-in--pop', sound: 'ui_click', accept: () => {
       safeCall(() => this.api.toMainMenu && this.api.toMainMenu());
       if (this.current === 'results') this.show('main', { wipe: true });
     } });
