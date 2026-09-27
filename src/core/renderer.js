@@ -9,6 +9,12 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { QUALITY } from '../config.js';
 import { G } from './ctx.js';
+import { isTouchDevice } from './input.js';
+
+// phones: render sharper than the low preset's 1× (Retina screens looked soft). The dynamic resolution in main.js steps
+// this back down toward 1× if the frame rate can't hold.
+const TOUCH_PR = 1.5;
+const prCap = (q) => Math.max(q.pixelRatio, isTouchDevice() ? TOUCH_PR : 0);
 
 const GradeShader = {
   uniforms: {
@@ -98,7 +104,7 @@ export class Renderer {
     const r = this.renderer, q = this.q;
     if (this.composer) { this.composer.renderTarget1.dispose(); this.composer.renderTarget2.dispose(); }
     this.dynScale = this.dynScale || 1;
-    const pr = Math.min(window.devicePixelRatio || 1, q.pixelRatio) * this.dynScale;
+    const pr = Math.min(window.devicePixelRatio || 1, prCap(q)) * this.dynScale;
     r.setPixelRatio(pr);
     const w = window.innerWidth, h = window.innerHeight;
     r.setSize(w, h);
@@ -156,7 +162,7 @@ export class Renderer {
     s = Math.max(0.65, Math.min(1, s));
     if (Math.abs(s - this.dynScale) < 0.01) return;
     this.dynScale = s;
-    const pr = Math.min(window.devicePixelRatio || 1, this.q.pixelRatio) * s;
+    const pr = Math.min(window.devicePixelRatio || 1, prCap(this.q)) * s;
     this.renderer.setPixelRatio(pr);
     this.composer.setPixelRatio(pr);
     this.composer.setSize(this._w, this._h);
