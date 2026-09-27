@@ -189,9 +189,9 @@ export const MATCH = {
 
 // ---- Friend match (online) ----
 // server: URL of the room relay (server/ → `npx wrangler deploy` prints it, e.g. https://inkwave-rooms.<you>.workers.dev).
-// Empty = only a local `wrangler dev` on :8787 is used (see net/net.js resolveServer); ?server=… overrides it.
+// Empty = only a local `wrangler dev` on :8787 is used (see net/net.js resolveServer); ?server=… (e.g. ?server=http://localhost:8787) overrides it.
 export const NET = {
-  server: '',
+  server: 'https://inkwave-rooms.jishanshicheng.workers.dev',
   codeLength: 5,
   sendRate: 20,              // match frames per second each player sends
   interpDelay: 0.11,         // s: remote players are drawn this far in the past (smooths network jitter)
