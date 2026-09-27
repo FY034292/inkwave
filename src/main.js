@@ -52,6 +52,8 @@ class Game {
       saveJSON('inkwave.settings', this.settings);
     }
     // v1.1: fov became horizontal — migrate old vertical values once
+    // phones: the first touch-assist build turned camera follow on by default; the CoD-style controls turn it off
+    if (this.settings.touchRev !== 2) { this.settings.cameraFollowTouch = false; this.settings.touchRev = 2; saveJSON('inkwave.settings', this.settings); }
     if (this.settings.fovMode !== 'h') { this.settings.fov = DEFAULT_SETTINGS.fov; this.settings.fovMode = 'h'; saveJSON('inkwave.settings', this.settings); }
     this.profile = loadJSON('inkwave.profile', DEFAULT_PROFILE);
     if (this.profile.name === 'プレイヤー') { this.profile.name = 'Player'; saveJSON('inkwave.profile', this.profile); }

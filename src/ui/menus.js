@@ -76,7 +76,9 @@ const pctFmt = (v) => Math.round(v * 100) + '%';
 const SETTINGS_TABS = [
   { id: 'controls', label: '操作', icon: 'keyboard', rows: [
     { key: 'touchSensitivity', only: 'touch', label: 'タッチ感度', type: 'slider', min: 0.3, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×', help: '画面の右側をドラッグしたときの視点の回りやすさ。' },
-    { key: 'autoAimTouch', only: 'touch', label: 'オートエイム', type: 'toggle', help: '撃つ・ボムを構えると、前方の近い相手へ自動で照準が向く。' },
+    { key: 'autoFireTouch', only: 'touch', label: 'オート射撃', type: 'toggle', help: '照準が相手に重なると自動で撃つ。地面を塗るときは射撃ボタンを使う。' },
+    { key: 'autoAimTouch', only: 'touch', label: 'オートエイム', type: 'toggle', help: '照準の近くの相手や、撃っているときに前方の相手へ照準が自動で向く。' },
+    { key: 'leftFireTouch', only: 'touch', label: '左手の射撃ボタン', type: 'toggle', help: '左側にも射撃ボタンを置き、右手で狙いながら撃てるようにする。' },
     { key: 'cameraFollowTouch', only: 'touch', label: 'カメラ自動調整', type: 'toggle', help: '移動スティックの方向へ視点が回り、視点の高さも足元を塗りやすい角度に戻る。' },
     { key: 'aimAssistTouch', only: 'touch', label: 'エイム補助（タッチ）', type: 'toggle', help: '照準の近くにいる相手へ視点が少し吸い付く。' },
     { key: 'sensitivity', only: 'mouse', label: 'マウス感度', type: 'slider', min: 0.2, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×', help: 'マウスを動かしたときの視点の回りやすさ。' },
@@ -1861,8 +1863,8 @@ export class Menus {
       const T = (t) => `<span class="iw-ctl__touch">${t}</span>`;
       rows.splice(0, rows.length,
         ['移動', null, T('左側をドラッグ')],
-        ['狙う', '撃つと近くの相手へ自動で向く', T('右側をドラッグ')],
-        ['撃つ', '長押し', T('ブキボタン')],
+        ['狙う', '相手の近くで自動で合う', T('右側をドラッグ')],
+        ['撃つ', '相手に合うと自動 / 塗るときは長押し', T('ブキボタン（左右）')],
         ['イカ状態で泳ぐ', '長押し / タップで固定', T('イカボタン')],
         ['ジャンプ', null, T('ジャンプボタン')],
         ['ボムを狙い、放して投げる', '長押し', T('ボムボタン')],
