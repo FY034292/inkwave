@@ -19,7 +19,7 @@ export const TEAM_NAMES = ['Alpha', 'Bravo'];
 
 // ---- Player physics / feel (meters, seconds) ----
 export const PLAYER = {
-  hp: 100,
+  hp: 160,             // 1.6× the original 100: fights last a few more hits
   radius: 0.38,
   height: 1.45,          // kid form standing height (feet -> top of head)
   squidHeight: 0.55,
@@ -39,11 +39,11 @@ export const PLAYER = {
   inkRefillSwim: 42,     // per second while submerged
   inkRefillKid: 9,       // per second in kid form after idle delay
   inkRefillDelay: 0.9,
-  enemyInkDps: 20,       // damage/s while standing in enemy ink ...
-  enemyInkDamageCap: 40, // ... never takes you below (hp - cap) from ink alone
+  enemyInkDps: 32,       // damage/s while standing in enemy ink ...
+  enemyInkDamageCap: 64, // ... never takes you below (hp - cap) from ink alone
   regenDelay: 1.3,
-  regenRate: 22,
-  regenRateSwim: 60,
+  regenRate: 35,
+  regenRateSwim: 96,
   respawnTime: 5.5,
   spawnInvuln: 1.6,
   fallDeathY: -1.45,  // touching the sea (surface y = -1.6) splats you
@@ -226,7 +226,6 @@ export const DEFAULT_SETTINGS = {
   showFps: false,
   master: 0.8, music: 0.6, sfx: 0.85,
   colorblind: false,
-  minimap: true,
   matchLength: 180,
   difficulty: 'normal',
   aimAssistMouse: false,    // optional aim assist for mouse

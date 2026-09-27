@@ -591,15 +591,6 @@ function previewFps(ctx) {
   set(ctx.value);
   return { el, set };
 }
-function previewMinimap(ctx) {
-  const el = h('div', { class: 'iw-pv iw-pv--map', html: hudFrame(`<g class="iw-pv-pop"><rect x="228" y="100" width="80" height="66" rx="10" fill="${K}"/><rect x="233" y="105" width="70" height="56" rx="7" fill="#e9e0cd"/>
-      <path class="iw-fa" d="M238 118 q10 -6 20 0 q6 5 -4 10 q-10 4 -16 -2z M244 140 q9 -5 16 2 q4 6 -6 8 q-9 1 -10 -10z"/><path class="iw-fb" d="M280 112 q9 -4 16 2 q4 6 -6 9 q-9 2 -10 -11z M276 140 q10 -6 20 1 q5 6 -6 10 q-11 2 -14 -11z"/>
-      <circle cx="252" cy="132" r="4" fill="#fff" stroke="${K}" stroke-width="2"/></g>`) + '<div class="iw-pv-cap"></div>' });
-  const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? '画面の隅に<b>ミニマップを表示</b>' : 'ミニマップを<b>非表示</b>。大きなマップはTAB長押し'; };
-  set(ctx.value);
-  return { el, set };
-}
 
 function previewShake(ctx) {
   const el = h('div', { class: 'iw-pv iw-pv--shake', html: `<div class="iw-pv-shake__frame">${hudFrame(`<g transform="translate(212 112)"><g class="iw-pv-boom"><path class="iw-fb" d="${splatShape(0, 0, 22, { seed: 9, arms: 9, drops: 0 }).core}"/><text y="5" text-anchor="middle" font-family="Titan One, sans-serif" font-size="13" fill="#fff" stroke="${K}" stroke-width="3" paint-order="stroke">ドカン</text></g></g>`)}</div><div class="iw-pv-cap"></div>` });
@@ -740,7 +731,6 @@ export function createPreview(key, ctx = {}) {
     case 'shadows': return previewShadows(ctx);
     case 'bloom': return previewBloom(ctx);
     case 'showFps': return previewFps(ctx);
-    case 'minimap': return previewMinimap(ctx);
     case 'cameraShake': return previewShake(ctx);
     case 'aimAssistMouse': return previewAimMouse(ctx);
     case 'master': case 'music': case 'sfx': return previewAudio(ctx, key);

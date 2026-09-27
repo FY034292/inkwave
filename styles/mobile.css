@@ -97,10 +97,6 @@ html.is-touch .iw-res__splat { width: 150px; }
 html.is-touch .iw-results .iw-res__body, html.is-touch .iw-res__body { left: var(--ml); right: var(--mr); top: 34%; bottom: var(--mb); }
 html.is-touch .iw-res__medals { transform-origin: right top; scale: .8; }
 
-/* ---- no corner minimap on phones: the map button (top left) opens the full map, which still grows out of this box */
-html.is-touch .iw-map { opacity: 0; transition: opacity .18s; }
-html.is-touch .iw-map.is-expanded { opacity: 1; }
-
 /* ---- bigger hit areas everywhere */
 html.is-touch .iw-seg__opt { min-height: 36px; }
 html.is-touch .iw-toggle { min-height: 34px; }
