@@ -187,13 +187,11 @@ export class CameraRig {
     else if (this.mode === 'overview') this._overview(dt);
     // settings.fov is the HORIZONTAL field of view at a 16:9 reference (Hor+: wider screens see more, never a stretched
     // fisheye); kicks/zoom are in vertical degrees
-    // phones: the whole view is magnified instead (same camera, same framing, everything larger — like CoD Mobile). A
-    // phone screen wider than 16:9 keeps the desktop's horizontal FOV rather than seeing more at the sides, so the
-    // picture is the desktop one scaled up ~1.2× on a 19.5:9 phone. (touchFov / touchBoom stay 0: a narrower lens from
-    // further back flattened the stage and made the kids look out of scale with it.)
-    const touch = !!G.input?.touch?.active;
-    const ref = touch ? Math.max(16 / 9, cam.aspect || 16 / 9) : 16 / 9;
-    const vBase = 2 * Math.atan(Math.tan((this.baseFov * Math.PI) / 360) / ref) * (180 / Math.PI) + (touch ? this.touchFov : 0);
+    // phones keep exactly the desktop lens and camera distance (touchFov / touchBoom stay 0). Any change to the 3D
+    // projection — a narrower lens, a longer boom, or zooming in on wide screens — changes the perspective between your
+    // own kid (4.5 m from the lens) and the stage behind, which reads as the kids and the map being out of scale. Making
+    // things easier to see on a phone is done in screen space instead: a larger HUD and buttons, a sharper render.
+    const vBase = 2 * Math.atan(Math.tan((this.baseFov * Math.PI) / 360) / (16 / 9)) * (180 / Math.PI) + (G.input?.touch?.active ? this.touchFov : 0);
     let fov = vBase + (this.fovKick - this.zoom) * 0.8;
     // pose blend (mode transitions)
     const b = this.blend;
