@@ -6,7 +6,7 @@ html.is-touch, html.is-touch body { touch-action: none; overscroll-behavior: non
 html.is-touch .iw-hud { left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); }
 
 .iw-tc {
-  --tb: clamp(50px, 15.5vh, 78px);
+  --tb: clamp(56px, 17.5vh, 84px);
   --F: calc(var(--tb) * 1.42);
   --R: calc(20px + env(safe-area-inset-right, 0px));
   --B: calc(18px + env(safe-area-inset-bottom, 0px));

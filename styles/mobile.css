@@ -4,7 +4,9 @@
    size so tablets keep the desktop layout) and every screen is re-flowed into a compact header + content area that
    fits a landscape phone: two columns at most, long lists scroll, the main action is always on screen.
    ===================================================================================== */
-html.is-touch .iw-ui, html.is-touch .iw-hud, html.is-touch .iw-hud-over { --u: min(1.3vw, 2.3vh, 16px); }
+html.is-touch .iw-ui { --u: min(1.3vw, 2.3vh, 16px); }
+/* the in-match HUD reads larger still (timer, team badges, special gauge, ink tank): a phone screen is a few cm tall */
+html.is-touch .iw-hud, html.is-touch .iw-hud-over { --u: min(1.6vw, 2.9vh, 16px); }
 html.is-touch .iw-ui {
   --ml: calc(14px + var(--sal)); --mr: calc(14px + var(--sar));
   --mt: calc(58px + var(--sat)); --mb: calc(10px + var(--sab));
