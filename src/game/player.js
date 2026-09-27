@@ -49,7 +49,9 @@ export class PlayerController {
     const assistOn = touch ? s.aimAssistTouch !== false : s.aimAssistMouse;
     const as = this._assistTarget(assistOn ? (touch ? 0.8 : 0.5) : 0);
     // ---- look
-    const friction = as ? lerp(1, 0.58, as.closeness * as.strength) : 1;
+    // (touch keeps the slowdown light: with the fire button doubling as the look pad, a strong one made aiming while
+    // shooting feel heavy)
+    const friction = as ? lerp(1, touch ? 0.82 : 0.58, as.closeness * as.strength) : 1;
     let lookActive = false;
     // while the map diorama is up the mouse steers the map cursor
     const mapUp = (G.rig?.mapK ?? 0) > 0.05 || inp.down('Tab') || inp.down('KeyM') || !!tc?.map;
@@ -63,10 +65,10 @@ export class PlayerController {
     // touch look: CSS px of finger drag (a thumb swipe across half a phone screen ≈ a half turn)
     const tdx = mapUp || !tc ? 0 : tc.lookDx, tdy = mapUp || !tc ? 0 : tc.lookDy;
     if (tdx || tdy) {
-      // response curve on drag speed: 0.75× for slow aiming drags up to 1.7× for fast flicks
+      // response curve on drag speed: 1× for slow aiming drags up to 1.7× for fast flicks
       const v = Math.hypot(tdx, tdy) / Math.max(dt, 1 / 240);
       const t = clamp((v - 150) / 1650, 0, 1);
-      const sens = 0.0068 * (s.touchSensitivity ?? 1) * (assistOn ? friction : 1) * (0.75 + 0.95 * t * t * (3 - 2 * t));
+      const sens = 0.0068 * (s.touchSensitivity ?? 1) * (assistOn ? friction : 1) * (1 + 0.7 * t * t * (3 - 2 * t));
       rig.yaw -= tdx * sens;
       rig.pitch -= tdy * sens * 0.8;
       lookActive = true;
@@ -125,12 +127,12 @@ export class PlayerController {
   _touchHelpers(dt, mx, mz, ml, tc, lookActive) {
     const a = this.a, rig = this.rig, s = G.settings;
     // lock-on: pick (or keep) a target; settle onto it while fire / bomb is held, or — with auto fire — as soon as it is
-    // near the crosshair. A drag still wins: it only slows the pull, and dragging past the cone drops the lock.
+    // near the crosshair. A drag always wins: no pull while the thumb is moving the view.
     this.lock = s.autoAimTouch !== false && a.alive ? this._lockTarget() : null;
     this._lockErr = this.lock ? Math.hypot(angleDiff(rig.yaw, this._lockYaw), rig.pitch - this._lockPitch) : 9;
     const engaging = !!(tc.fire || tc.sub || a.weaponRunner?.charging) || (s.autoFireTouch !== false && this._lockErr < 12 * DEG);
-    if (this.lock && engaging) {
-      const k = lookActive ? 3 : 9;
+    if (this.lock && engaging && !lookActive) {
+      const k = 9;
       rig.yaw = dampAngle(rig.yaw, this._lockYaw, k, dt);
       rig.pitch = damp(rig.pitch, this._lockPitch, k * 0.85, dt);
     }
