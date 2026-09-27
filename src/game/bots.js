@@ -40,6 +40,7 @@ export class BotBrain {
     this.mvYaw = this.a.yaw; this.mvMag = 0;
     this.dodgeCd = 1 + Math.random() * 2;
     this.retreatT = 0; this._firing = false;
+    this.flinchY = 0; this.flinchP = 0;
   }
 
   update(dt) {
@@ -131,8 +132,17 @@ export class BotBrain {
       const e = this.diff.aimError;
       const acq = Math.exp(-this.acqT / Math.max(0.12, this.diff.reaction * 0.9));
       const wander = (x) => Math.sin(x) * 0.6 + Math.sin(x * 2.27 + 1.3) * 0.4;
-      wantYaw = idealYaw + e * (0.75 * wander(this.t * 1.7 + this.ph1) + 2.4 * acq * this.acqSignY);
-      wantPitch = idealPitch + e * 0.6 * (0.75 * wander(this.t * 2.1 + this.ph2) + 1.6 * acq * this.acqSignP);
+      // random aim slips: now and then the aim jerks off the target and has to be dragged back (easier to dodge)
+      const fl = this.diff.aimFlinch || 0;
+      if (fl > 0 && Math.random() < fl * dt) {
+        const m = (this.diff.aimFlinchMag || 0.15) * (0.5 + Math.random() * 0.8);
+        const ang = Math.random() * Math.PI * 2;
+        this.flinchY = Math.cos(ang) * m; this.flinchP = Math.sin(ang) * m * 0.5;
+      }
+      const fk = Math.exp(-2.2 * dt);
+      this.flinchY *= fk; this.flinchP *= fk;
+      wantYaw = idealYaw + e * (0.75 * wander(this.t * 1.7 + this.ph1) + 2.4 * acq * this.acqSignY) + this.flinchY;
+      wantPitch = idealPitch + e * 0.6 * (0.75 * wander(this.t * 2.1 + this.ph2) + 1.6 * acq * this.acqSignP) + this.flinchP;
       if (this.mode === 'fight') {
         // movement in combat: keep preferred distance + eased strafing (+ swim in to close distance)
         const pref = w.kind === 'charger' ? range * 0.8 : w.kind === 'roller' ? 0.5 : range * 0.7;

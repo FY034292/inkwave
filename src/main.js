@@ -5,7 +5,7 @@ import { Renderer } from './core/renderer.js';
 import { Input } from './core/input.js';
 import { mapTheme,
   DEFAULT_SETTINGS, QUALITY, TEAM_PALETTES, COLORBLIND_PALETTE, TEAM_NAMES, WEAPONS, WEAPON_ORDER, SUB, SPECIALS,
-  MAPS, DIFFICULTY, PLAYER, PROGRESSION, VERSION, MATCH,
+  MAPS, DIFFICULTY, PLAYER, PROGRESSION, VERSION, MATCH, BOT_DIFFICULTY, FIXED_FOV,
 } from './config.js';
 import { Level } from './world/level.js';
 import { MAP_LAYOUTS } from './world/maps.js';
@@ -54,6 +54,9 @@ class Game {
     // phones: the first touch-assist build turned camera follow on by default; the CoD-style controls turn it off
     if (this.settings.touchRev !== 2) { this.settings.cameraFollowTouch = false; this.settings.touchRev = 2; saveJSON('inkwave.settings', this.settings); }
     if (this.settings.fovMode !== 'h') { this.settings.fov = DEFAULT_SETTINGS.fov; this.settings.fovMode = 'h'; saveJSON('inkwave.settings', this.settings); }
+    // fixed rules: everyone plays at the same FOV, CPUs are always easy, every match is 3 minutes, no auto fire
+    this._lockSettings();
+    saveJSON('inkwave.settings', this.settings);
     this.profile = loadJSON('inkwave.profile', DEFAULT_PROFILE);
     if (this.profile.name === 'プレイヤー') { this.profile.name = 'Player'; saveJSON('inkwave.profile', this.profile); }
     const app = document.getElementById('app');
@@ -344,8 +347,15 @@ class Game {
     return api;
   }
 
+  _lockSettings() {
+    const s = this.settings;
+    s.fov = FIXED_FOV; s.difficulty = BOT_DIFFICULTY; s.matchLength = MATCH.defaultDuration;
+    delete s.autoFireTouch;
+  }
+
   _setSettings(partial) {
     Object.assign(this.settings, partial);
+    this._lockSettings();
     this.settings.quality = 'low';
     this.settings.bloom = false;
     this.settings.shadows = false;
@@ -563,8 +573,8 @@ class Game {
     const opts = {
       mapId: o.mapId === 'sunset' ? 'tidewater' : (o.mapId || this.mapDef.id),
       time: o.mapId === 'sunset' ? 'dusk' : (o.time || this.time || 'day'),
-      difficulty: o.difficulty || this.settings.difficulty,
-      duration: o.duration || this.settings.matchLength || MATCH.defaultDuration,
+      difficulty: BOT_DIFFICULTY,
+      duration: params.has('autostart') && o.duration ? o.duration : MATCH.defaultDuration,
     };
     this.lastMatchOpts = opts;
     G.audio?.init?.();

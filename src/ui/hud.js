@@ -88,7 +88,7 @@ export class HUD {
     this.ctx = this.canvas.getContext('2d');
 
     // ---- top bar: roster + timer
-    const squad = (side) => h('div', { class: `iw-squad iw-squad--${side}` }, Array.from({ length: 4 }, () => {
+    const squad = (side) => h('div', { class: `iw-squad iw-squad--${side}` }, Array.from({ length: MATCH.teamSize }, () => {
       const ring = h('i', { class: 'iw-sq__ring', html: '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" pathLength="100"/></svg>' });
       return h('span', { class: 'iw-sq' },
         h('span', { class: 'iw-sq__badge', html: `<svg class="iw-sq__shape" viewBox="0 0 64 64" aria-hidden="true"><path class="o" d="${BADGE_PATH}"/><path class="f" d="${BADGE_PATH}"/><path class="g" d="M17 30 Q20 22 28 19"/></svg>` },
@@ -735,7 +735,7 @@ export class HUD {
     for (let t = 0; t < 2; t++) {
       const ps = (teams[t] && teams[t].players) || [];
       const icons = this.squads[t].children;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < icons.length; i++) {
         const p = ps[i];
         const el = icons[i];
         const k = `sq${t}${i}`;

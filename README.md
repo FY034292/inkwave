@@ -5,7 +5,7 @@
 <h1 align="center">INKWAVE</h1>
 
 <p align="center">
-  An original Splatoon-style 4v4 turf-war shooter that runs in your browser.<br>
+  An original Splatoon-style 3v3 turf-war shooter that runs in your browser.<br>
   Paint the ground, swim through your ink, out-turf the other team.
 </p>
 
