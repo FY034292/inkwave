@@ -15,6 +15,17 @@ import { isTouchDevice } from './input.js';
 // this back down toward 1× if the frame rate can't hold.
 const TOUCH_PR = 1.5;
 const prCap = (q) => Math.max(q.pixelRatio, isTouchDevice() ? TOUCH_PR : 0);
+// The drawing size comes from the box the canvas actually fills (#app, fixed to the whole screen), not innerWidth /
+// innerHeight: on phones those can report a shorter viewport than the one on screen (iOS in landscape, the home
+// indicator area with viewport-fit=cover, a stale value after rotating). Depending on which size won, that showed
+// either an unrendered black band along the bottom, or a picture stretched to the full screen with the camera aspect
+// of the shorter one (the kids and the stage looked out of scale). The canvas CSS stays 100 % × 100 % of that box, and
+// the render size and camera aspect always come from the same measurement.
+const viewSize = (canvas) => {
+  const el = canvas?.parentElement;
+  const w = (el && el.clientWidth) || window.innerWidth, h = (el && el.clientHeight) || window.innerHeight;
+  return [w, h];
+};
 
 const GradeShader = {
   uniforms: {
@@ -106,8 +117,8 @@ export class Renderer {
     this.dynScale = this.dynScale || 1;
     const pr = Math.min(window.devicePixelRatio || 1, prCap(q)) * this.dynScale;
     r.setPixelRatio(pr);
-    const w = window.innerWidth, h = window.innerHeight;
-    r.setSize(w, h);
+    const [w, h] = viewSize(r.domElement);
+    r.setSize(w, h, false);
     const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: q.msaa || 0 });
     const comp = (this.composer = new EffectComposer(r, rt));
     comp.setPixelRatio(pr);
@@ -169,10 +180,10 @@ export class Renderer {
   }
 
   resize() {
-    const w = window.innerWidth, h = window.innerHeight;
+    const [w, h] = viewSize(this.renderer.domElement);
     if (w === this._w && h === this._h) return;
     this._w = w; this._h = h;
-    this.renderer.setSize(w, h);
+    this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
     this.gtao?.setSize(w, h);
     this.grade.uniforms.uAspect.value = w / h;
