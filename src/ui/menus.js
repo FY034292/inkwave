@@ -1943,7 +1943,7 @@ export class Menus {
     }
     const el = h('div', { class: 'iw-screen iw-room' },
       h('div', { class: 'iw-scrim-full' }),
-      this._header('フレンド対戦', { sub: 'フレンドと最大6人でナワバリバトル · 空いた枠はCPU' }),
+      this._header('フレンド対戦', { sub: 'フレンドと最大6人でナワバリバトル · 空いた枠はCPU（1vs1もOK）' }),
       h('div', { class: 'iw-room__body' },
         this._panel('iw-room__card iw-in iw-in--pop',
           h('div', { class: 'iw-seclabel' }, h('i', { html: GLYPHS.flag }), 'ルームを作る'),
@@ -1996,7 +1996,8 @@ export class Menus {
       h('div', { class: 'iw-seclabel' }, h('i', { html: GLYPHS.flag }), 'ルームコード'),
       codeEl, copyBtn);
 
-    // ---- teams (3 slots each; the empty ones are CPUs)
+    // ---- teams (3 slots each; the empty ones are CPUs — or stay empty when the host turned CPUs off)
+    const curCpu = () => !(ns.config && ns.config.cpu === false);
     const teamsEl = h('div', { class: 'iw-lobby__teams' });
     const renderTeams = () => {
       const cols = [0, 1].map((t) => {
@@ -2004,7 +2005,9 @@ export class Menus {
         const mine = ns.members.find((m) => m.isSelf);
         const slots = Array.from({ length: N }, (_, i) => {
           const m = ms[i];
-          if (!m) return h('div', { class: 'iw-lslot is-cpu' }, h('span', { class: 'iw-lslot__icon', html: GLYPHS.bot }), h('span', { class: 'iw-lslot__name' }, 'CPU'));
+          if (!m) return curCpu()
+            ? h('div', { class: 'iw-lslot is-cpu' }, h('span', { class: 'iw-lslot__icon', html: GLYPHS.bot }), h('span', { class: 'iw-lslot__name' }, 'CPU'))
+            : h('div', { class: 'iw-lslot is-cpu is-open' }, h('span', { class: 'iw-lslot__icon' }), h('span', { class: 'iw-lslot__name' }, '空き'));
           const W = this._weapons()[m.weapon] || {};
           return h('div', { class: 'iw-lslot' + (m.isSelf ? ' is-self' : '') },
             h('span', { class: 'iw-lslot__icon', html: weaponIcon(W.kind || m.weapon) }),
@@ -2036,7 +2039,7 @@ export class Menus {
       if (!ns.isHost) return;
       const i = (maps.indexOf(curMap()) + d + maps.length) % maps.length;
       this._sfx('ui_toggle');
-      api.netConfig && api.netConfig({ mapId: maps[i].id, time: curTime() });
+      api.netConfig && api.netConfig({ mapId: maps[i].id, time: curTime(), cpu: curCpu() });
     };
     const stageBtn = h('button', { class: 'iw-lstage' },
       stageArtEl,
@@ -2046,7 +2049,11 @@ export class Menus {
     this._bind(stageBtn, { id: 'stage', accept: () => setStage(1), adjust: (d) => setStage(d) });
     const timeBtn = this._btn({
       id: 'time', label: '時間帯', icon: GLYPHS.sun, cls: 'iw-btn--small iw-btn--ghost',
-      accept: () => { if (ns.isHost && api.netConfig) { this._sfx('ui_toggle'); api.netConfig({ mapId: curMap().id, time: curTime() === 'day' ? 'dusk' : 'day' }); } },
+      accept: () => { if (ns.isHost && api.netConfig) { this._sfx('ui_toggle'); api.netConfig({ mapId: curMap().id, time: curTime() === 'day' ? 'dusk' : 'day', cpu: curCpu() }); } },
+    });
+    const cpuBtn = this._btn({
+      id: 'cpu', label: 'CPU', icon: GLYPHS.bot, cls: 'iw-btn--small iw-btn--ghost',
+      accept: () => { if (ns.isHost && api.netConfig) { this._sfx('ui_toggle'); api.netConfig({ mapId: curMap().id, time: curTime(), cpu: !curCpu() }); } },
     });
     const renderStage = () => {
       const m = curMap(), t = curTime();
@@ -2060,7 +2067,8 @@ export class Menus {
         im.src = src;
         stageArtEl.replaceChildren(im);
       }
-      stageBtn.disabled = !ns.isHost; timeBtn.disabled = !ns.isHost;
+      stageBtn.disabled = !ns.isHost; timeBtn.disabled = !ns.isHost; cpuBtn.disabled = !ns.isHost;
+      cpuBtn.querySelector('.iw-btn__label').textContent = ns.isHost ? (curCpu() ? 'CPUなしにする' : 'CPUありにする') : (curCpu() ? '空き枠はCPU' : 'CPUなし');
       stageBtn.classList.toggle('is-locked', !ns.isHost);
       timeBtn.querySelector('.iw-btn__label').textContent = t === 'dusk' ? '昼にする' : '夕方にする';
       timeBtn.querySelector('.iw-btn__icon').innerHTML = t === 'dusk' ? GLYPHS.sun : GLYPHS.moon;
@@ -2093,7 +2101,7 @@ export class Menus {
     const leave = this._btn({ id: 'leave', label: '退出', icon: GLYPHS.close, cls: 'iw-btn--small iw-btn--ghost iw-btn--danger', accept: confirmLeave });
     const side = this._panel('iw-lobby__side iw-in iw-in--right',
       h('div', { class: 'iw-seclabel' }, h('i', { html: GLYPHS.map }), 'ルール · ナワバリバトル 3分'),
-      stageBtn, timeBtn, weaponChip, start, waitEl, h('div', { class: 'iw-lobby__row' }, leave));
+      stageBtn, timeBtn, cpuBtn, weaponChip, start, waitEl, h('div', { class: 'iw-lobby__row' }, leave));
 
     const render = () => {
       const f = this._focus && this._focus.dataset && this._focus.dataset.id;
@@ -2101,9 +2109,13 @@ export class Menus {
       renderTeams();
       renderStage();
       const humans = ns.members.length;
-      startSub.textContent = `${humans}人${humans < N * 2 ? ` + CPU ${N * 2 - humans}人` : ''}`;
+      const per = [0, 1].map((t) => ns.members.filter((m) => m.team === t).length);
+      // without CPUs both teams need somebody (1 vs 1 at least)
+      const short = !curCpu() && (!per[0] || !per[1]);
+      startSub.textContent = curCpu() ? `${humans}人${humans < N * 2 ? ` + CPU ${N * 2 - humans}人` : ''}`
+        : short ? '両チームに1人以上必要です' : `${per[0]} vs ${per[1]} · CPUなし`;
       start.style.display = ns.isHost ? '' : 'none';
-      start.disabled = !ns.isHost || ns.phase !== 'lobby';
+      start.disabled = !ns.isHost || ns.phase !== 'lobby' || short;
       waitEl.style.display = ns.isHost && ns.phase === 'lobby' ? 'none' : '';
       waitEl.lastChild.textContent = ns.phase === 'match' ? '対戦中です。終わるまで待ちましょう' : 'ホストがスタートするのを待っています';
       el.classList.toggle('is-host', !!ns.isHost);
@@ -2133,7 +2145,7 @@ export class Menus {
     if (ns.isHost && ns.config && !ns.config.mapId && api.netConfig) {
       const last = this._settings().lastStage;
       const m = maps.find((x) => x.id === last) || maps[0];
-      api.netConfig({ mapId: m.id, time: this._stageTime(m.id) });
+      api.netConfig({ mapId: m.id, time: this._stageTime(m.id), cpu: curCpu() });
     }
     render();
     return {

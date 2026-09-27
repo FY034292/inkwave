@@ -111,7 +111,7 @@ export class Room extends DurableObject {
     const [, code, action] = url.pathname.split('/');
     if (action === 'init') {
       if (this.meta) return json({ error: 'exists' }, 409);
-      this.meta = { code, created: Date.now(), host: 0, nextId: 1, phase: 'lobby', config: { mapId: null, time: 'day' } };
+      this.meta = { code, created: Date.now(), host: 0, nextId: 1, phase: 'lobby', config: { mapId: null, time: 'day', cpu: true } };
       await this._save();
       await this.ctx.storage.setAlarm(Date.now() + IDLE_CLEANUP_MS);
       return json({ ok: true });
@@ -186,6 +186,7 @@ export class Room extends DurableObject {
         if (!isHost || this.meta.phase !== 'lobby') break;
         if (typeof o.mapId === 'string') this.meta.config.mapId = clean(o.mapId, 24);
         if (o.time === 'day' || o.time === 'dusk') this.meta.config.time = o.time;
+        if (typeof o.cpu === 'boolean') this.meta.config.cpu = o.cpu;   // false: humans only (1 vs 1, 2 vs 2…)
         await this._save();
         this._broadcast(this._roomState());
         break;

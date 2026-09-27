@@ -367,7 +367,7 @@ class Game {
       netJoin: (code) => self.netJoin(code),
       netLeave: () => self.netLeave(),
       netSetTeam: (team) => self.net.set({ team }),
-      netConfig: (cfg) => self.net.config(cfg),
+      netConfig: (cfg) => { if (typeof cfg.cpu === 'boolean') self._netCpu = cfg.cpu; self.net.config(cfg); self._netChanged(); },
       netStart: () => self.netStart(),
       onScreenChange: (s) => self._onScreen(s),
       playSound: (n) => { G.audio?.init?.(); G.audio?.play(n); },
@@ -651,10 +651,15 @@ class Game {
     const n = this.net, room = n.room;
     return {
       server: !!n.server, connected: n.connected, busy: !!this._netBusy, myId: n.myId, isHost: n.isHost,
-      code: room ? room.code : '', phase: room ? room.phase : '', config: room ? room.config : null,
+      code: room ? room.code : '', phase: room ? room.phase : '', config: room ? this._netConfig(room) : null,
       members: room ? room.members.map((m) => ({ ...m, isSelf: m.id === n.myId, isHost: m.id === room.host })) : [],
       inMatch: !!this.sync,
     };
+  }
+  // a relay deployed before the CPU switch drops `cpu` — the host then goes by its own choice
+  _netConfig(room) {
+    const c = room.config || {};
+    return { ...c, cpu: typeof c.cpu === 'boolean' ? c.cpu : !(this.net.isHost && this._netCpu === false) };
   }
   _netChanged(err) {
     for (const fn of this._netListeners || []) { try { fn(this._netState(), err || null); } catch (e) { console.error('[net] listener', e); } }
@@ -673,7 +678,7 @@ class Game {
   netStart() {
     const room = this.net.room;
     if (!this.net.isHost || !room || room.phase !== 'lobby') return;
-    this.net.start(startPayload(room));
+    this.net.start(startPayload({ ...room, config: this._netConfig(room) }));
   }
 
   // every machine in the room gets the host's start payload: build the same stage and the same six squidkids, tell

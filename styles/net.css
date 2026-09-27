@@ -51,6 +51,7 @@
 .iw-lslot.is-cpu { opacity: .55; font-weight: 600; font-style: italic; }
 .iw-lslot__icon { flex: none; width: calc(var(--u) * 2.8); height: calc(var(--u) * 2.2); color: var(--c); }
 .iw-lslot.is-cpu .iw-lslot__icon { color: rgba(255, 255, 255, .7); }
+.iw-lslot.is-open { opacity: .35; }
 .iw-lslot__icon svg { width: 100%; height: 100%; }
 .iw-lslot__name { flex: 1; min-width: 4em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .iw-lslot__tag { flex: none; display: flex; align-items: center; gap: .3em; padding: .3em .55em; border-radius: 999px; background: rgba(255, 255, 255, .12);
