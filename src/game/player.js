@@ -8,7 +8,7 @@
 // Touch (phones) follows the big mobile shooters (CoD Mobile's "simple mode"):
 //   · look curve   — slow drags are finer than fast ones (a flick turns far, a nudge lines up a shot)
 //   · auto fire    — the weapon fires on its own while an enemy is under / next to the crosshair and in range (charge
-//                    weapons charge and release); the fire buttons are still there for painting
+//                    weapons charge and release); the fire button is still there for painting
 //   · lock-on      — with an enemy near the crosshair (or fire / bomb held) the view settles onto them
 //   · camera follow + auto pitch (off by default) — the view turns with the move stick and rests at a floor-inking height
 import * as THREE from 'three';
