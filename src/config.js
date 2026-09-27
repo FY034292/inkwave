@@ -232,6 +232,8 @@ export const DEFAULT_SETTINGS = {
   aimAssistMouse: false,    // optional aim assist for mouse
   touchSensitivity: 1.0,    // touch look multiplier 0.3..3
   aimAssistTouch: true,     // aim assist for the touch controls (on by default: thumbs are far less precise)
+  autoAimTouch: true,       // touch lock-on: fire / bomb swings the view onto the nearest enemy in front
+  cameraFollowTouch: true,  // touch: the view turns with the move stick and settles to a floor-inking height
 };
 
 // Quality presets consumed by the renderer + fx.

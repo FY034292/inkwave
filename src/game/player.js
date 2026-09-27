@@ -4,8 +4,13 @@
 // look near an enemy under the crosshair, tracking assist carries a fraction of the target's angular motion while
 // you are actively aiming or moving — never an auto-snap. Bullet magnetism pulls shots onto the body line of an enemy
 // the crosshair is actually touching (at the height you aimed), so hits register exactly as they look.
+//
+// Touch (phones) adds three helpers so the game plays without fine thumb work, each a setting that defaults on:
+//   · lock-on      — while fire / bomb is held, the view swings onto the best enemy in a wide cone in front of you
+//   · camera follow — with the look thumb idle, the view turns toward where the move stick is steering (one-thumb play)
+//   · auto pitch   — with no vertical drag for a moment, the view settles to a height that inks the floor ahead
 import * as THREE from 'three';
-import { G, clamp, lerp, angleDiff } from '../core/ctx.js';
+import { G, clamp, lerp, angleDiff, damp, dampAngle } from '../core/ctx.js';
 import { PLAYER } from '../config.js';
 import { Physics, Hit } from './physics.js';
 
@@ -22,6 +27,10 @@ export class PlayerController {
     this.inRange = false;
     this.enabled = true;
     this.assist = { target: null, yaw: 0, pitch: 0, has: false, strength: 0 };
+    this.lock = null;             // touch lock-on target (actor) — the HUD draws a ring on it
+    this._lockYaw = 0; this._lockPitch = 0;
+    this._lookIdle = 9;           // s since the last look drag (touch)
+    this._vLookIdle = 9;          // s since the last drag with a real vertical component
   }
 
   update(dt) {
@@ -29,7 +38,7 @@ export class PlayerController {
     const it = a.intent;
     if (!this.enabled) {
       it.move.set(0, 0, 0); it.fire = it.jump = it.squid = it.sub = it.special = false;
-      this.assist.has = false;
+      this.assist.has = false; this.lock = null;
       return;
     }
     // ---- aim assist target (computed from last frame's camera; cheap)
@@ -56,7 +65,10 @@ export class PlayerController {
       rig.yaw -= tdx * sens;
       rig.pitch -= tdy * sens * 0.8;
       lookActive = true;
+      this._lookIdle = 0;
+      if (Math.abs(tdy) > 1.5) this._vLookIdle = 0;
     }
+    this._lookIdle += dt; this._vLookIdle += dt;
     // ---- move (camera relative)
     let mx = 0, mz = 0;
     if (inp.down('KeyW') || inp.down('ArrowUp')) mz += 1;
@@ -72,6 +84,8 @@ export class PlayerController {
       rig.yaw += angleDiff(as.prevYaw, as.yaw) * share;
       rig.pitch += (as.pitch - as.prevPitch) * share * 0.7;
     }
+    if (touch && !mapUp) this._touchHelpers(dt, mx, mz, ml, tc, lookActive);
+    else this.lock = null;
     rig.pitch = clamp(rig.pitch, -1.05, 1.15);
     a.aimYaw = rig.yaw;
     a.aimPitch = rig.pitch;
@@ -99,6 +113,63 @@ export class PlayerController {
 
     // ---- aim point from the camera centre ray
     this.computeAim();
+  }
+
+  // ---- touch helpers (see the header). Fire / sub input is read straight off the touch state: the intent is set after.
+  _touchHelpers(dt, mx, mz, ml, tc, lookActive) {
+    const a = this.a, rig = this.rig, s = G.settings;
+    const engaging = !!(tc.fire || tc.sub || a.weaponRunner?.charging);
+    // lock-on: pick (or keep) a target; while engaging, swing onto it. A drag still wins — it only slows the pull, and
+    // dragging past the cone drops the lock.
+    this.lock = s.autoAimTouch !== false && a.alive ? this._lockTarget() : null;
+    if (this.lock && engaging) {
+      const k = lookActive ? 3 : 13;
+      rig.yaw = dampAngle(rig.yaw, this._lockYaw, k, dt);
+      rig.pitch = damp(rig.pitch, this._lockPitch, k * 0.85, dt);
+    }
+    if (s.cameraFollowTouch === false || a.superJumpState) return;
+    // camera follow: strafing turns the view toward the heading (pure strafes most, straight ahead / back not at all)
+    if (this._lookIdle > 0.45 && ml > 0.25 && !(this.lock && engaging)) {
+      const rel = Math.atan2(mx, mz);
+      if (Math.abs(rel) < 2.4) rig.yaw -= Math.sin(rel) * ml * (tc.fire ? 0.8 : 1.3) * dt;
+    }
+    // auto pitch: rest at the height that puts the crosshair on the floor at ~80 % of the weapon's range
+    if (this._vLookIdle > 1.2 && !this.lock && !a.climbing && a.anim?.form !== 'climb') {
+      const w = a.weapon;
+      const rest = w.kind === 'charger' ? -0.07 : clamp(-Math.atan2(2.1, (rig.curDist || 5) + this._range(w) * 0.8), -0.3, -0.06);
+      rig.pitch = damp(rig.pitch, rest, 1.6, dt);
+    }
+  }
+
+  _range(w) { return w.kind === 'charger' ? w.rangeMax : w.kind === 'roller' ? 6 : (w.range || 12); }
+
+  // Lock-on target: enemies in range, in a wide yaw cone around the view, in line of sight. The current lock is kept
+  // over a wider cone so it doesn't flick between two kids standing side by side.
+  _lockTarget() {
+    const a = this.a, rig = this.rig, cam = G.rig?.gameCam || G.camera;
+    if (!cam) return null;
+    const range = this._range(a.weapon) * 1.1 + 1;
+    let best = null, bestScore = Infinity;
+    _v2.copy(a.pos); _v2.y += 1.3;
+    for (const e of G.actors) {
+      if (e.team === a.team || !e.alive || e.anim.form === 'swim' || e.invuln > 0) continue;
+      const d = Math.hypot(e.pos.x - a.pos.x, e.pos.z - a.pos.z);
+      if (d > range) continue;
+      _c.set(e.pos.x, e.pos.y + (e.smoothY || 0) + (e.form === 'squid' ? 0.3 : 0.95), e.pos.z);
+      const dyaw = Math.abs(angleDiff(rig.yaw, Math.atan2(_c.x - cam.position.x, _c.z - cam.position.z)));
+      const cone = (e === this.lock ? 40 : 28) * DEG;
+      if (dyaw > cone || Math.abs(_c.y - a.pos.y) > 7) continue;
+      if (!G.physics.los(_v2, _c)) continue;
+      const score = dyaw / cone + (d / range) * 0.6 - (e === this.lock ? 0.3 : 0);
+      if (score < bestScore) { bestScore = score; best = e; }
+    }
+    if (best) {
+      _c.set(best.pos.x, best.pos.y + (best.smoothY || 0) + (best.form === 'squid' ? 0.3 : 0.95), best.pos.z);
+      _v.copy(_c).sub(cam.position);
+      this._lockYaw = Math.atan2(_v.x, _v.z);
+      this._lockPitch = clamp(Math.asin(clamp(_v.y / Math.max(1e-3, _v.length()), -1, 1)), -1.0, 1.1);
+    }
+    return best;
   }
 
   // Best enemy near the crosshair for aim assist (angular cone scaled so it covers ~a body width at any range).
@@ -167,8 +238,7 @@ export class PlayerController {
       a.aimPoint.set(e.pos.x, clamp(py, baseY + 0.2, baseY + h - 0.12), e.pos.z);
     }
     // is the crosshair point inside the weapon's effective range? (HUD reticle state)
-    const w = a.weapon;
-    const range = w.kind === 'charger' ? w.rangeMax : w.kind === 'roller' ? 6 : (w.range || 12);
+    const range = this._range(a.weapon);
     this.inRange = a.aimPoint.distanceTo(a.pos) <= range + 0.5;
   }
 }
