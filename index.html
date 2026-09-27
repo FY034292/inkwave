@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="styles/ui.css">
 <link rel="stylesheet" href="styles/touch.css">
 <link rel="stylesheet" href="styles/mobile.css">
+<link rel="stylesheet" href="styles/a2hs.css">
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1020; user-select: none; -webkit-user-select: none; }
   #app { position: fixed; inset: 0; }
@@ -41,6 +42,8 @@
   try { if (matchMedia('(pointer: coarse)').matches || /[?&]touch\b/.test(location.search)) document.documentElement.classList.add('is-touch'); } catch (e) { /* old browser */ }
   // PWA: offline play + instant start (needs https or localhost)
   if ('serviceWorker' in navigator && !/[?&]nosw\b/.test(location.search)) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // Chrome may offer the install prompt before the game module has loaded: keep it for the "add to home screen" hint
+  addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); window.__iwInstall = e; });
   // fade in once the loading screen is mounted
   window.addEventListener('DOMContentLoaded', () => setTimeout(() => { const f = document.getElementById('fade'); if (f) { f.style.opacity = '0'; f.style.pointerEvents = 'none'; } }, 60));
 </script>
