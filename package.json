@@ -4,7 +4,9 @@
   "description": "An original Splatoon-style 3v3 turf-war shooter for the browser, built on three.js.",
   "scripts": {
     "start": "python3 tools/serve.py 8490",
-    "check": "for f in $(find src tools -name '*.js' -o -name '*.mjs'); do node --check \"$f\" || exit 1; done && echo 'syntax ok'",
+    "check": "for f in $(find src tools server/src -name '*.js' -o -name '*.mjs'); do node --check \"$f\" || exit 1; done && echo 'syntax ok'",
+    "server": "cd server && npm install --no-audit --no-fund && npx wrangler dev --ip 0.0.0.0 --port 8787",
+    "release:server": "cd server && npm install --no-audit --no-fund && npx wrangler deploy",
     "smoke": "./tools/smoke.sh",
     "build": "python3 tools/build-dist.py",
     "release": "./tools/release-pages.sh"
