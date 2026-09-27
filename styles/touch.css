@@ -66,15 +66,6 @@ html.is-touch .iw-hud { left: env(safe-area-inset-left, 0px); right: env(safe-ar
 /* the map is a targeting view: only the stick, pause and the map toggle stay */
 .iw-tc.is-map .iw-tc__btn:not(.iw-tc__btn--map):not(.iw-tc__btn--pause) { opacity: 0; visibility: hidden; }
 
-/* ---- lock-on ring (auto aim target) */
-.iw-tc__lock { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; transition: opacity .15s; pointer-events: none; }
-.iw-tc__lock.is-on { opacity: .7; }
-.iw-tc__lock.is-pull { opacity: 1; }
-.iw-tc__lock::before { content: ''; position: absolute; left: -24px; top: -24px; width: 48px; height: 48px; border-radius: 50%;
-  border: 3px dashed #fff; box-shadow: 0 0 0 2px rgba(21, 18, 28, .45); animation: iw-tc-lock 2.4s linear infinite; }
-.iw-tc__lock.is-pull::before { border-style: solid; border-color: var(--c); left: -19px; top: -19px; width: 38px; height: 38px; }
-@keyframes iw-tc-lock { to { transform: rotate(360deg); } }
-
 /* ---- first-round hints */
 .iw-tc__hint { position: absolute; bottom: calc(var(--B) + 6px); padding: 5px 10px; border-radius: 999px; background: rgba(21, 18, 28, .6); font-size: 12px; opacity: .9; pointer-events: none; transition: opacity .6s; }
 .iw-tc__hint--l { left: calc(var(--L) + 24vw); translate: -50% 0; bottom: calc(var(--B) + 36vh); }

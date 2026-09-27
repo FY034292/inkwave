@@ -7,7 +7,6 @@
 //                   aim, release throws), SPECIAL (lights up when charged), MAP (toggle; tap a pin to super jump,
 //                   tap anywhere else to close), PAUSE
 // Only listens to pointer events of type 'touch' / 'pen', so a mouse on a touch laptop keeps the pointer-lock controls.
-import * as THREE from 'three';
 import { h, clamp } from './ui-util.js';
 import { weaponIcon, SUB_ICONS, specialIcon, SQUID, GLYPHS } from './ui-icons.js';
 import { G } from '../core/ctx.js';
@@ -15,7 +14,6 @@ import { G } from '../core/ctx.js';
 const STICK_R = 56;           // px the knob can travel from the stick centre
 const DEAD = 0.14;            // stick dead zone (fraction of STICK_R)
 const LATCH_TAP = 0.24;       // s — a squid press shorter than this latches squid form
-const _p = new THREE.Vector3();
 const JUMP_ICON = `<svg class="iw-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 8 L52 30 L40 30 L40 50 L24 50 L24 30 L12 30 Z" fill="currentColor" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M16 58 L48 58" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>`;
 const PAUSE_ICON = `<svg class="iw-ico" viewBox="0 0 64 64" aria-hidden="true"><rect x="16" y="12" width="11" height="40" rx="4" fill="currentColor"/><rect x="37" y="12" width="11" height="40" rx="4" fill="currentColor"/></svg>`;
 
@@ -58,10 +56,8 @@ export class TouchControls {
     };
     this.stickHint = h('div', { class: 'iw-tc__hint iw-tc__hint--l' }, 'ドラッグで移動');
     this.lookHint = h('div', { class: 'iw-tc__hint iw-tc__hint--r' }, 'ドラッグで視点');
-    // lock-on ring: sits on the enemy the auto aim has picked (brighter while it is pulling the view)
-    this.lockRing = h('div', { class: 'iw-tc__lock' });
     this.el = h('div', { class: 'iw-tc', 'aria-hidden': 'true' },
-      this.lockRing, this.stick, this.stickHint, this.lookHint, Object.values(this.btns));
+      this.stick, this.stickHint, this.lookHint, Object.values(this.btns));
     document.body.appendChild(this.el);
     this._icons = { weapon: 'shooter', special: 'slam' };
   }
@@ -110,27 +106,10 @@ export class TouchControls {
       this._pend.clear();
     }
     this.el.classList.toggle('is-map', this.t.map);
-    this._updLock();
     // hide the how-to hints once the player has moved and looked around
     // (the camera follows the stick, so a player who never drags to look still loses them after a while)
     this._hintT = (this._hintT || 0) + dt;
     if (!this._hintsGone && this._movedT > 0.6 && (this._lookedT > 0.6 || this._hintT > 12)) { this._hintsGone = true; this.el.classList.add('is-seasoned'); }
-  }
-
-  _updLock() {
-    const L = !this.t.map && G.match?.controller?.lock, cam = G.camera;
-    let on = false;
-    if (L && cam) {
-      _p.set(L.pos.x, L.pos.y + (L.smoothY || 0) + (L.form === 'squid' ? 0.3 : 0.95), L.pos.z).project(cam);
-      if (_p.z < 1 && Math.abs(_p.x) < 1.1 && Math.abs(_p.y) < 1.1) {
-        on = true;
-        const x = (_p.x * 0.5 + 0.5) * innerWidth, y = (-_p.y * 0.5 + 0.5) * innerHeight;
-        this.lockRing.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
-        const pull = !!(this.t.fire || this.t.sub || G.match?.controller?.autoFiring);
-        if (pull !== this._pull) { this._pull = pull; this.lockRing.classList.toggle('is-pull', pull); }
-      }
-    }
-    if (on !== this._lockOn) { this._lockOn = on; this.lockRing.classList.toggle('is-on', on); }
   }
 
   _roleAt(e) {
