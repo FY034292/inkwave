@@ -49,9 +49,7 @@ export class PlayerController {
     const assistOn = touch ? s.aimAssistTouch !== false : s.aimAssistMouse;
     const as = this._assistTarget(assistOn ? (touch ? 0.8 : 0.5) : 0);
     // ---- look
-    // (touch keeps the slowdown light: with the fire button doubling as the look pad, a strong one made aiming while
-    // shooting feel heavy)
-    const friction = as ? lerp(1, touch ? 0.82 : 0.58, as.closeness * as.strength) : 1;
+    const friction = as ? lerp(1, 0.58, as.closeness * as.strength) : 1;
     let lookActive = false;
     // while the map diorama is up the mouse steers the map cursor
     const mapUp = (G.rig?.mapK ?? 0) > 0.05 || inp.down('Tab') || inp.down('KeyM') || !!tc?.map;
