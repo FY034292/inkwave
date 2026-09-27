@@ -66,15 +66,15 @@ export class InstallPrompt {
     const el = this.el;
     const oneTap = !!this.deferred;
     // the game is landscape-only, and in landscape both Safari and Chrome keep the share / ⋮ button top-right
-    const body = oneTap ? 'ホーム画面に追加すると、全画面ですぐに遊べます。'
-      : isIOS ? `右上の ${SHARE_ICON}<b>共有</b>（または「…」→共有）から「<b>ホーム画面に追加</b>」を選んでね。`
-      : `右上の ${MENU_ICON}<b>メニュー</b>から「<b>ホーム画面に追加</b>」または「<b>アプリをインストール</b>」を選んでね。`;
+    const body = oneTap ? 'アドレスバーなしで、アプリのようにすぐ遊べます。'
+      : isIOS ? `右上の ${SHARE_ICON}<b>共有</b>（または「…」→共有）→「<b>ホーム画面に追加</b>」`
+      : `右上の ${MENU_ICON}<b>メニュー</b>→「<b>ホーム画面に追加</b>」`;
     el.innerHTML = `
       <div class="iw-a2hs__card">
         <button class="iw-a2hs__close" type="button" aria-label="閉じる">×</button>
         <img class="iw-a2hs__app" src="assets/icons/icon-192.png" alt="" width="48" height="48">
         <div class="iw-a2hs__text">
-          <div class="iw-a2hs__title">ホーム画面に追加しよう</div>
+          <div class="iw-a2hs__title">ホーム画面に追加すると<br>全画面でプレイできます</div>
           <div class="iw-a2hs__body">${body}</div>
         </div>
         ${oneTap ? '<button class="iw-a2hs__go" type="button">追加する</button>' : ''}
