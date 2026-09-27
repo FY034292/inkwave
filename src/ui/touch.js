@@ -3,7 +3,7 @@
 //   · left side   → floating move stick (appears where the thumb lands; analog, with a small dead zone)
 //   · right side  → drag anywhere to look; every action button is also a look pad while held, so you can aim while
 //                   firing / aiming a bomb / swimming
-//   · buttons     → FIRE (hold), SQUID (hold, or tap to latch — tap again, fire or throw to stand up), JUMP, SUB (hold to
+//   · buttons     → FIRE (hold), SQUID (hold, or tap to latch — tap again, fire or throw to stand up), SUB (hold to
 //                   aim, release throws), SPECIAL (lights up when charged), MAP (toggle; tap a pin to super jump,
 //                   tap anywhere else to close), PAUSE
 // Only listens to pointer events of type 'touch' / 'pen', so a mouse on a touch laptop keeps the pointer-lock controls.
@@ -14,7 +14,6 @@ import { G } from '../core/ctx.js';
 const STICK_R = 56;           // px the knob can travel from the stick centre
 const DEAD = 0.14;            // stick dead zone (fraction of STICK_R)
 const LATCH_TAP = 0.24;       // s — a squid press shorter than this latches squid form
-const JUMP_ICON = `<svg class="iw-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 8 L52 30 L40 30 L40 50 L24 50 L24 30 L12 30 Z" fill="currentColor" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M16 58 L48 58" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>`;
 const PAUSE_ICON = `<svg class="iw-ico" viewBox="0 0 64 64" aria-hidden="true"><rect x="16" y="12" width="11" height="40" rx="4" fill="currentColor"/><rect x="37" y="12" width="11" height="40" rx="4" fill="currentColor"/></svg>`;
 
 export class TouchControls {
@@ -48,7 +47,6 @@ export class TouchControls {
     this.btns = {
       fire: btn('fire', 'fire', weaponIcon('shooter')),
       squid: btn('squid', 'squid', SQUID, 'イカ'),
-      jump: btn('jump', 'jump', JUMP_ICON, 'ジャンプ'),
       sub: btn('sub', 'sub', SUB_ICONS.bomb),
       special: btn('special', 'special', specialIcon('slam')),
       map: btn('map', 'map', GLYPHS.map),
@@ -115,12 +113,6 @@ export class TouchControls {
   _roleAt(e) {
     const b = e.target.closest?.('[data-btn]');
     if (b) return { role: 'btn', btn: b.dataset.btn, el: b };
-    // the corner minimap opens the big map (it sits in the HUD layer above, which lets touches through)
-    const mm = document.querySelector('.iw-map:not(.is-expanded)');
-    if (mm && mm.offsetParent) {
-      const r = mm.getBoundingClientRect();
-      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) return { role: 'btn', btn: 'map' };
-    }
     return { role: e.clientX < innerWidth * 0.45 ? 'stick' : 'look' };
   }
 

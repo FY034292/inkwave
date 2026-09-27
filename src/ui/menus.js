@@ -96,7 +96,7 @@ const SETTINGS_TABS = [
   { id: 'gameplay', label: 'ゲーム', icon: 'swords', rows: [
     { key: 'cameraShake', label: '画面の揺れ', type: 'slider', min: 0, max: 1, step: 0.05, fmt: pctFmt, help: '爆発や攻撃を受けたときの画面の揺れ。' },
     { key: 'colorblind', label: '見分けやすいインク色', type: 'toggle', help: 'チームカラーを見分けやすい黄色と青にする。' },
-    { key: 'minimap', label: 'ミニマップ', type: 'toggle', help: '対戦中に画面の隅へマップを表示する。' },
+    { key: 'minimap', only: 'mouse', label: 'ミニマップ', type: 'toggle', help: '対戦中に画面の隅へマップを表示する。' },
     { key: 'difficulty', label: '相手の強さ', type: 'seg', options: null, help: '新しい対戦で使う難易度。' },
     { key: 'matchLength', label: '対戦時間', type: 'seg', options: null, help: 'ナワバリバトルの長さ。' },
   ] },
@@ -1865,10 +1865,9 @@ export class Menus {
         ['狙う', '相手の近くで自動で合う', T('右側をドラッグ')],
         ['撃つ', '相手に合うと自動 / 塗るときは長押し', T('ブキボタン')],
         ['イカ状態で泳ぐ', '長押し / タップで固定', T('イカボタン')],
-        ['ジャンプ', null, T('ジャンプボタン')],
         ['ボムを狙い、放して投げる', '長押し', T('ボムボタン')],
         ['スペシャル', null, T('光ったらタップ')],
-        ['マップ', null, T('ミニマップをタップ')],
+        ['マップ', null, T('左上のマップボタン')],
         ['一時停止', null, T('左上のボタン')]);
     }
     const list = compact ? rows.filter((r) => ['移動', '撃つ', 'イカ状態で泳ぐ', 'ジャンプ', 'ボムを狙い、放して投げる', 'スペシャル'].includes(r[0])) : rows;
