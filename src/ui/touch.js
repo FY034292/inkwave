@@ -49,8 +49,6 @@ export class TouchControls {
     this.stick = h('div', { class: 'iw-tc__stick' }, this.knob);
     this.btns = {
       fire: btn('fire', 'fire', weaponIcon('shooter')),
-      // CoD Mobile style left-hand trigger: the left thumb shoots so the right thumb can keep aiming
-      lfire: btn('lfire', 'lfire', weaponIcon('shooter')),
       squid: btn('squid', 'squid', SQUID, 'イカ'),
       jump: btn('jump', 'jump', JUMP_ICON, 'ジャンプ'),
       sub: btn('sub', 'sub', SUB_ICONS.bomb),
@@ -98,10 +96,8 @@ export class TouchControls {
     const kind = a.weapon?.kind || 'shooter';
     if (kind !== this._icons.weapon) {
       this._icons.weapon = kind;
-      for (const b of [this.btns.fire, this.btns.lfire]) b.querySelector('.iw-tc__ico').innerHTML = weaponIcon(kind);
+      this.btns.fire.querySelector('.iw-tc__ico').innerHTML = weaponIcon(kind);
     }
-    const lf = G.settings?.leftFireTouch !== false;
-    if (lf !== this._lf) { this._lf = lf; this.el.classList.toggle('no-lfire', !lf); }
     const sp = a.weapon?.special || 'slam';
     if (sp !== this._icons.special) { this._icons.special = sp; this.btns.special.querySelector('.iw-tc__ico').innerHTML = specialIcon(sp); }
     const ready = !!a.specialReady?.();
@@ -139,7 +135,7 @@ export class TouchControls {
 
   _roleAt(e) {
     const b = e.target.closest?.('[data-btn]');
-    if (b) return b.dataset.btn === 'lfire' ? { role: 'btn', btn: 'fire', el: b, left: true } : { role: 'btn', btn: b.dataset.btn, el: b };
+    if (b) return { role: 'btn', btn: b.dataset.btn, el: b };
     // the corner minimap opens the big map (it sits in the HUD layer above, which lets touches through)
     const mm = document.querySelector('.iw-map:not(.is-expanded)');
     if (mm && mm.offsetParent) {
@@ -164,7 +160,7 @@ export class TouchControls {
       }
     }
     const r = this._roleAt(e);
-    const p = { role: r.role, btn: r.btn, el: r.el, left: r.left, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: e.timeStamp };
+    const p = { role: r.role, btn: r.btn, el: r.el, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: e.timeStamp };
     if (r.role === 'stick') {
       if (this.stickId !== null) p.role = 'look';
       else {
@@ -212,7 +208,7 @@ export class TouchControls {
       if (m > 0.3) this._movedT = (this._movedT || 0) + 1 / 60;
       return;
     }
-    if (p.role === 'maptap' || p.btn === 'map' || p.btn === 'pause' || p.left) return;
+    if (p.role === 'maptap' || p.btn === 'map' || p.btn === 'pause') return;
     // every other touch on the right is a look pad
     this.t.lookDx += dx; this.t.lookDy += dy;
     if (Math.abs(dx) + Math.abs(dy) > 1) this._lookedT = (this._lookedT || 0) + 1 / 60;

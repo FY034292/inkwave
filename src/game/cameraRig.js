@@ -61,6 +61,8 @@ export class CameraRig {
     this.path = null;             // cinematic path { from, to, lookFrom, lookTo, t, dur, ease }
     this.lookAt = new THREE.Vector3();
     this.baseFov = 70;
+    // phones (touch): vertical FOV offset in degrees and extra boom length in metres on top of the desktop framing
+    this.touchFov = 0; this.touchBoom = 0;
     this.zoom = 0;
     this.time = 0;
     this.kick = 0;                // visual recoil pitch (radians)
@@ -185,9 +187,9 @@ export class CameraRig {
     else if (this.mode === 'overview') this._overview(dt);
     // settings.fov is the HORIZONTAL field of view at a 16:9 reference (Hor+: wider screens see more, never a stretched
     // fisheye); kicks/zoom are in vertical degrees
-    // phones: a narrower lens from further back (see _follow). Enemies and the ink ahead read ~25 % bigger, so thumbs
-    // need less precision, while your own kid stays about the desktop size on screen
-    const vBase = 2 * Math.atan(Math.tan((this.baseFov * Math.PI) / 360) / (16 / 9)) * (180 / Math.PI) + (G.input?.touch?.active ? -3 : 0);
+    // phones use the desktop framing (touchFov / touchBoom stay 0): a narrower lens from further back flattened the
+    // stage and made the kids look out of scale with it
+    const vBase = 2 * Math.atan(Math.tan((this.baseFov * Math.PI) / 360) / (16 / 9)) * (180 / Math.PI) + (G.input?.touch?.active ? this.touchFov : 0);
     let fov = vBase + (this.fovKick - this.zoom) * 0.8;
     // pose blend (mode transitions)
     const b = this.blend;
@@ -367,7 +369,7 @@ export class CameraRig {
     const charging = a.weaponRunner?.charging ? a.weaponRunner.charge : 0;
     this.zoom = damp(this.zoom, charging > 0.99 ? 14 : charging * 6, 8, dt);
     // ---- boom length: soft probe, fast in / slow out
-    const far = G.input?.touch?.active ? 1.9 : 0;
+    const far = G.input?.touch?.active ? this.touchBoom : 0;
     let want = (squid ? 4.1 : this.dist) + far - charging * 0.6;
     if (swim) want += clamp((hs - 6) / 6, 0, 1) * 0.35;
     if (flying) want += 1.2;
