@@ -185,9 +185,9 @@ export class CameraRig {
     else if (this.mode === 'overview') this._overview(dt);
     // settings.fov is the HORIZONTAL field of view at a 16:9 reference (Hor+: wider screens see more, never a stretched
     // fisheye); kicks/zoom are in vertical degrees
-    // phones: a few degrees wider and the lens a little further back (see _follow) — on a small screen your own kid
-    // otherwise fills the lower third and the thumbs cover the rest
-    const vBase = 2 * Math.atan(Math.tan((this.baseFov * Math.PI) / 360) / (16 / 9)) * (180 / Math.PI) + (G.input?.touch?.active ? 7 : 0);
+    // phones: a narrower lens from further back (see _follow). Enemies and the ink ahead read ~25 % bigger, so thumbs
+    // need less precision, while your own kid stays about the desktop size on screen
+    const vBase = 2 * Math.atan(Math.tan((this.baseFov * Math.PI) / 360) / (16 / 9)) * (180 / Math.PI) + (G.input?.touch?.active ? -3 : 0);
     let fov = vBase + (this.fovKick - this.zoom) * 0.8;
     // pose blend (mode transitions)
     const b = this.blend;
@@ -367,7 +367,7 @@ export class CameraRig {
     const charging = a.weaponRunner?.charging ? a.weaponRunner.charge : 0;
     this.zoom = damp(this.zoom, charging > 0.99 ? 14 : charging * 6, 8, dt);
     // ---- boom length: soft probe, fast in / slow out
-    const far = G.input?.touch?.active ? 1.2 : 0;
+    const far = G.input?.touch?.active ? 1.9 : 0;
     let want = (squid ? 4.1 : this.dist) + far - charging * 0.6;
     if (swim) want += clamp((hs - 6) / 6, 0, 1) * 0.35;
     if (flying) want += 1.2;

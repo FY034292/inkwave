@@ -76,6 +76,8 @@ const pctFmt = (v) => Math.round(v * 100) + '%';
 const SETTINGS_TABS = [
   { id: 'controls', label: '操作', icon: 'keyboard', rows: [
     { key: 'touchSensitivity', only: 'touch', label: 'タッチ感度', type: 'slider', min: 0.3, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×', help: '画面の右側をドラッグしたときの視点の回りやすさ。' },
+    { key: 'autoAimTouch', only: 'touch', label: 'オートエイム', type: 'toggle', help: '撃つ・ボムを構えると、前方の近い相手へ自動で照準が向く。' },
+    { key: 'cameraFollowTouch', only: 'touch', label: 'カメラ自動調整', type: 'toggle', help: '移動スティックの方向へ視点が回り、視点の高さも足元を塗りやすい角度に戻る。' },
     { key: 'aimAssistTouch', only: 'touch', label: 'エイム補助（タッチ）', type: 'toggle', help: '照準の近くにいる相手へ視点が少し吸い付く。' },
     { key: 'sensitivity', only: 'mouse', label: 'マウス感度', type: 'slider', min: 0.2, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×', help: 'マウスを動かしたときの視点の回りやすさ。' },
     { key: 'aimAssistMouse', only: 'mouse', label: 'エイム補助（マウス）', type: 'toggle', help: 'マウス操作にも弱めのエイム補助を適用する。' },
@@ -1859,7 +1861,7 @@ export class Menus {
       const T = (t) => `<span class="iw-ctl__touch">${t}</span>`;
       rows.splice(0, rows.length,
         ['移動', null, T('左側をドラッグ')],
-        ['狙う', null, T('右側をドラッグ')],
+        ['狙う', '撃つと近くの相手へ自動で向く', T('右側をドラッグ')],
         ['撃つ', '長押し', T('ブキボタン')],
         ['イカ状態で泳ぐ', '長押し / タップで固定', T('イカボタン')],
         ['ジャンプ', null, T('ジャンプボタン')],
