@@ -96,7 +96,6 @@ const SETTINGS_TABS = [
   { id: 'gameplay', label: 'ゲーム', icon: 'swords', rows: [
     { key: 'cameraShake', label: '画面の揺れ', type: 'slider', min: 0, max: 1, step: 0.05, fmt: pctFmt, help: '爆発や攻撃を受けたときの画面の揺れ。' },
     { key: 'colorblind', label: '見分けやすいインク色', type: 'toggle', help: 'チームカラーを見分けやすい黄色と青にする。' },
-    { key: 'minimap', only: 'mouse', label: 'ミニマップ', type: 'toggle', help: '対戦中に画面の隅へマップを表示する。' },
     { key: 'difficulty', label: '相手の強さ', type: 'seg', options: null, help: '新しい対戦で使う難易度。' },
     { key: 'matchLength', label: '対戦時間', type: 'seg', options: null, help: 'ナワバリバトルの長さ。' },
   ] },

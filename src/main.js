@@ -21,7 +21,6 @@ import { NavGraph } from './game/nav.js';
 import { Projectiles } from './game/weapons.js';
 import { CameraRig } from './game/cameraRig.js';
 import { Match } from './game/match.js';
-import { Minimap } from './game/minimap.js';
 import { Showcase } from './game/showcase.js';
 
 const params = new URLSearchParams(location.search);
@@ -205,7 +204,7 @@ class Game {
   }
 
   // Build (or rebuild) everything that depends on the stage layout: level, collision, paint atlas, surface material,
-  // decor, navigation graph and minimap. Environment/FX/projectiles persist across stages.
+  // decor and navigation graph. Environment/FX/projectiles persist across stages.
   async _buildWorld(map) {
     const scene = G.scene;
     const layoutId = map.layout || map.id;
@@ -247,7 +246,6 @@ class Game {
     scene.add(this.grateMesh);
     this.decor = new Decor(scene, level);
     G.nav = new NavGraph(level, G.physics);
-    this.minimap = new Minimap(level, G.paint);
     if (G.env?.rebuildForArena) G.env.rebuildForArena(level.bounds, this._footprint(level));
     else if (G.env?.setFootprint) G.env.setFootprint(this._footprint(level));
     if (G.teamColors[0]) this._setPalette(this.palette || this._pickPalette());
@@ -306,7 +304,6 @@ class Game {
     this.props?.setTeamColors?.(G.teamColors[0], G.teamColors[1]);
     G.projectiles.refreshColors();
     for (const a of G.actors) a.character.setColor(G.teamColors[a.team]);
-    this.minimap.version = -1;
     this.menus?.setAccent?.(p.a, p.b);
   }
   _teamOfColor(color) {
@@ -598,7 +595,6 @@ class Game {
     }));
     m.setup();
     this._dyn = null;
-    this.minimap.setViewerTeam(0);
     G.mode = 'match';
     this.hud?.setVisible(false);
     this.hudPrompt = null; this._hintT = 0; this._hints = {};
@@ -867,23 +863,11 @@ class Game {
 
   _updateHud(dt) {
     const m = this.match, a = m.local, cam = G.camera;
-    this.minimap.update(dt);
     const w = a.weapon;
     // crosshair spread = the weapon's live cone (first-shot accurate, blooms with sustained fire / in the air)
     const vHalf = (G.camera.fov * Math.PI) / 360;
     const coneDeg = a.weaponRunner.spread ?? (w.kind === 'shooter' ? 5.5 : w.kind === 'blaster' ? 1.2 : 0);
     const spread = w.kind === 'roller' ? 28 : Math.min(90, (Math.tan((coneDeg * Math.PI) / 180) / Math.tan(vHalf)) * (innerHeight / 2));
-    const players = [];
-    const t = { x: 0, y: 0 };
-    for (const o of m.actors) {
-      if (!o.alive) continue;
-      if (o.team !== a.team && !o.isLocal) {
-        // enemies only show on the map when visible to your team (not submerged far away)
-        if (o.anim.form === 'swim') continue;
-      }
-      this.minimap.toCanvas(o.pos.x, o.pos.z, t);
-      players.push({ x: t.x / this.minimap.w, y: t.y / this.minimap.h, team: o.team, isSelf: o.isLocal, yaw: -o.yaw + (this.minimap.flip ? Math.PI : 0), alive: o.alive, color: G.teamHex[o.team] });
-    }
     // ally markers
     const markers = [];
     const v = this._mv || (this._mv = new THREE.Vector3());
@@ -929,8 +913,6 @@ class Game {
       hp: a.hp / PLAYER.hp,
       weapon: a.weaponId, charge: a.weaponRunner.charge,
       crosshair: { spread, onTarget: m.controller?.onTarget ? 'enemy' : null, inRange: m.controller ? m.controller.inRange !== false : true },
-      // corner minimap follows the setting; the TAB map (needed for super jumps) is always available
-      map: (this.settings.minimap !== false) ? { canvas: this.minimap.canvas, expanded: false, players } : null,
       markers,
       prompt,
       fps: this.settings.showFps ? this.fps : undefined,
